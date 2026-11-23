@@ -3,7 +3,7 @@ title: "Zero-Downtime AKS Platform Migration via Flux GitOps"
 publishedAt: "2025-06-01"
 summary: "Orchestrated a zero-downtime migration of a live, traffic-serving Azure Kubernetes Service (AKS) cluster sharing an Azure Resource Group using Flux v2 GitOps across 15,512 lines of code and 107 files."
 images:
-  - "/images/projects/zero-downtime-kubernetes-platform-cutover/AKS_cutover_diagram.png"
+  - "/images/projects/zero-downtime-kubernetes-platform-cutover/AKS_cutover.svg"
   - "/images/projects/zero-downtime-kubernetes-platform-cutover/pr-summary.jpeg"
 team:
   - name: "Harjot Singh Makkar"
@@ -46,9 +46,9 @@ GitOps controllers like Flux reconcile desired state against actual cluster stat
 To prevent catastrophic collision, I established a strict **controller-first deployment runway** with blast-radius containment.
 
 <Media
-  src="/images/projects/zero-downtime-kubernetes-platform-cutover/AKS_cutover_diagram.png"
+  src="/images/projects/zero-downtime-kubernetes-platform-cutover/AKS_cutover.svg"
   alt="AKS Zero-Downtime Migration Architecture and Runway"
-  aspectRatio="3456 / 1684"
+  aspectRatio="1727.85 / 842.12"
   objectFit="contain"
   enlarge
   radius="m"

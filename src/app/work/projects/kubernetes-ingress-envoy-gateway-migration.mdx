@@ -1,9 +1,9 @@
 ---
-title: "Modernizing Kubernetes Ingress with a Zero-Drop Envoy Gateway Migration"
+title: "Zero-Downtime Migration from ingress-nginx to Envoy Gateway v1.7.0"
 publishedAt: "2025-05-01"
-summary: "Contributed to a Kubernetes ingress modernization effort, moving traffic from a legacy Nginx Ingress controller to Envoy Gateway with zero dropped requests during migration."
+summary: "Executed an end-to-end migration from legacy ingress-nginx to Envoy Gateway v1.7.0 using FluxCD GitOps, Gateway API, and Envoy extension CRDs, overcoming Azure Policy Gatekeeper constraints, edge CORS challenges, and 512k header buffer requirements with zero downtime."
 images:
-  - "/images/projects/project-01/cover-02.jpg"
+  - "/images/projects/ingress-to-envoy-migration/Envoy.svg"
 team:
   - name: "Harjot Singh Makkar"
     role: "Cloud SRE"
@@ -11,44 +11,286 @@ team:
     linkedIn: "https://linkedin.com/in/harjotmakkar322"
 ---
 
-## Overview
+## Executive Summary
 
-An end-of-life ingress component creates maintenance, security, and lifecycle risks in a production Kubernetes environment. This project involved migrating Kubernetes ingress infrastructure from Nginx Ingress to Envoy Gateway / Envoy Proxy, replacing the end-of-life component while serving live traffic.
+As ingress-nginx approaches legacy status and the Kubernetes Gateway API becomes the cloud-native standard, migrating live enterprise traffic to Envoy Gateway requires precision. This was not a simple helm upgrade; it was an architectural overhaul involving:
+- Deploying **Envoy Gateway v1.7.0** from scratch via FluxCD GitOps
+- Translating legacy NGINX annotations into native **Gateway API** routes and custom Envoy CRDs
+- Unblocking deployment rollouts past strict **Azure Policy / Gatekeeper** admission controls
+- Re-architecting **CORS enforcement** from backend services to the cluster edge
+- Diagnosing complex post-migration bottlenecks across Azure Blob Storage, OpenSearch, and Schema Registry
 
-## Context and Constraints
+The cutover was executed with **zero service downtime** and zero dropped requests across the entire microservice ecosystem.
 
-The environment served live production traffic through the existing Nginx Ingress controller. The migration required maintaining service routes for all workloads, validating that replacement routes behaved identically, and decommissioning the old ingress layer safely.
+<Media
+  src="/images/projects/ingress-to-envoy-migration/Envoy.svg"
+  alt="Zero-Downtime ingress-nginx to Envoy Gateway Migration Architecture"
+  aspectRatio="3541.55 / 1368.96"
+  objectFit="contain"
+  enlarge
+  radius="m"
+/>
 
-## Challenge
+---
 
-- Replacing ingress infrastructure without disrupting live traffic
-- Ensuring route compatibility across all workloads during the transition period
-- Validating that the new Envoy Gateway routes handled edge cases correctly
-- Safely decommissioning the old ingress layer after validation
+## 1. Envoy Gateway Architecture & Core Setup
 
-## Technical Approach
+### Controller & Gateway Deployment
+The rollout was codified using FluxCD GitOps (`Kustomization` and `HelmRelease`) into the `envoy-gateway-system` namespace. The deployment established:
+- A standardized `GatewayClass` managed by the Envoy Gateway control plane
+- A shared `ite-gateway` resource configured with dual HTTP (port 80) and HTTPS (port 443) listeners
+- A global HTTP-to-HTTPS redirect rule enforcing TLS encryption across all incoming traffic
 
-- Planned traffic migration with parallel routing during the transition period
-- Used Envoy Gateway's Gateway API resources to define replacement routes
-- Validated route behavior and traffic handling before shifting load
-- Executed a controlled cutover with monitoring active throughout
+### Enabling Extension APIs
+To support advanced traffic shaping and custom Envoy filters, `extensionApis` was explicitly enabled in the Envoy Gateway Helm values:
+```yaml
+# infrastructure/controllers/envoy-gateway/helm-release.yaml
+spec:
+  values:
+    extensionApis:
+      enable: true
+```
+This instructed the Envoy Gateway control plane to watch and reconcile extension Custom Resource Definitions (CRDs), specifically `EnvoyPatchPolicy`, `ClientTrafficPolicy`, and `SecurityPolicy`.
 
-## Reliability and Validation
+### Routing & Network Validation
+Before migrating workloads, LoadBalancer IP allocation on Azure was verified, ensuring external DNS records mapped correctly without IP conflicts or routing loops.
 
-- Monitored request success rates throughout the migration using observability tooling
-- Maintained the legacy Nginx Ingress controller in parallel until all routes were validated on Envoy Gateway
-- Decommissioned the old ingress layer only after traffic validation confirmed zero dropped requests
+---
 
-## Results
+## 2. Unblocking Rollout Past Azure Policy / Gatekeeper
 
-- Zero dropped requests during the migration, based on traffic validation
-- Replaced an end-of-life ingress component with a modern gateway-based approach
-- Improved long-term ingress maintainability and reduced lifecycle risk
+### The Stuck Deployment Incident
+During initial bootstrapping in the hardened cluster, zero pods reached the `Running` state in `envoy-gateway-system`. Flux reconciliation entered an infinite retry loop, and Helm threw:
+```
+Error: another operation (install/upgrade/rollback) is in progress
+```
 
-## Lessons Learned
+### Root Cause: Gatekeeper Container Resource Denials
+Inspecting the pre-install hook job using `kubectl describe job envoy-gateway-gateway-helm-certgen` revealed the blocker:
+Azure Policy (`validation.gatekeeper.sh`) intercepted and rejected the hook container because it lacked explicit CPU and memory resource requests and limits. The job timed out after 5 minutes, leaving the Helm release permanently locked in `pending-install`.
 
-Parallel routing during ingress migrations - running both old and new controllers briefly while shifting traffic incrementally - dramatically reduces the risk of a hard cutover. Defining success criteria (zero dropped requests, route coverage) before starting ensures the team has clear checkpoints.
+Once the hook failed, the main deployment also encountered `ReplicaFailure` for the exact same compliance reason.
 
-## Technology Tags
+### The Resolution: Verified v1.7.0 Resource Patching
+The v1.7.0 chart introduced a new schema hierarchy. Resource limits were injected for both the `certgen` hook job and the core `envoyGateway` deployment:
 
-Kubernetes · Nginx Ingress · Envoy Gateway · Envoy Proxy · Traffic migration · Production validation · Kubernetes networking
+```yaml
+# infrastructure/controllers/envoy-gateway/helm-release.yaml
+spec:
+  values:
+    # 1. Pre-install/pre-upgrade certgen hook resources
+    certgen:
+      job:
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+
+    # 2. Control plane deployment resources (v1.7.0 schema nesting)
+    deployment:
+      envoyGateway:
+        resources:
+          limits:
+            cpu: 500m
+            memory: 1024Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+```
+
+### Unlocking Helm & Forcing Reconciliation
+To recover from the locked state without tearing down the namespace:
+1. Deleted the stuck Helm secret: `kubectl delete secret -n envoy-gateway-system -l owner=helm,status=pending-install`
+2. Removed failed hook jobs: `kubectl delete job envoy-gateway-gateway-helm-certgen -n envoy-gateway-system`
+3. Triggered immediate Flux reconciliation:
+```bash
+kubectl annotate kustomization envoy-gateway -n flux-system \
+  reconcile.fluxcd.io/requestedAt=$(date +%s) --overwrite
+```
+
+### Proxy Log Audit
+Controller logs verified that the `gateway-api`, `xds`, `infrastructure`, `admin`, and `metrics` runners initialized cleanly. The data-plane proxy log threw a warning:
+```
+Expected cgroup v1 files not accessible
+```
+By analyzing the node-level runtime security posture, I verified this warning was completely benign in hardened Azure Kubernetes nodes where host `/sys/fs/` access is restricted.
+
+---
+
+## 3. Translating NGINX Annotations to Gateway API & Envoy CRDs
+
+### Microservice Route Cutover (HTTPRoute)
+Legacy ingress configurations embedded inside individual Helm charts (`ite-bff`, `ite-context`, `grafana`, `schema-registry`, etc.) were disabled. Each was translated into a declarative `HTTPRoute` manifest targeting `ite-gateway`:
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ite-bff-route
+  namespace: ite
+spec:
+  parentRefs:
+    - name: ite-gateway
+      namespace: envoy-gateway-system
+  hostnames:
+    - "api.ite-dev.example.com"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: ite-bff
+          port: 8080
+```
+
+### 512k Header & Buffer Tuning (EnvoyPatchPolicy)
+The application handled large OAuth tokens and enterprise metadata headers, which had previously relied on NGINX buffer tuning:
+- `large-client-header-buffers: "4 512k"`
+- `client-header-buffer-size: "512k"`
+- `proxy-busy-buffers-size: "512k"`
+
+Because the standard Gateway API spec lacks native buffer size parameters, I authored an `EnvoyPatchPolicy` using JSONPatch syntax to directly configure Envoy's listener filter chain:
+
+```yaml
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyPatchPolicy
+metadata:
+  name: max-request-headers-kb-policy
+  namespace: envoy-gateway-system
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: ite-gateway
+  type: JSONPatch
+  jsonPatches:
+    - name: envoy-gateway-system/ite-gateway/http
+      type: type.googleapis.com/envoy.config.listener.v3.Listener
+      operation:
+        op: add
+        path: /default_filter_chain/filters/0/typed_config/max_request_headers_kb
+        value: 512
+    - name: envoy-gateway-system/ite-gateway/https-apex
+      type: type.googleapis.com/envoy.config.listener.v3.Listener
+      operation:
+        op: add
+        path: /filter_chains/0/filters/0/typed_config/max_request_headers_kb
+        value: 512
+```
+
+---
+
+## 4. Decommissioning ingress-nginx & Cluster Cleanup
+
+With traffic actively routed through Envoy Gateway:
+1. **Ingress Audit**: Executed a cluster-wide audit (`kubectl get ingress -A`) to verify no workloads depended on the legacy controller.
+2. **Manifest Removal**: Deleted deprecated NGINX ingress resources and chart values across all Git repositories.
+3. **Controller Teardown**: Decommissioned the `ingress-nginx` controller, its associated LoadBalancer service, and its validating admission webhook configurations, eliminating resource waste and admission latency.
+
+---
+
+## 5. Environment-Scoped Edge CORS Architecture
+
+### The Architectural Shift
+Under the legacy setup, `nginx.ingress.kubernetes.io/enable-cors: "false"` was configured, effectively bypassing the proxy and delegating CORS preflight handling directly to the backend BFF.
+
+With Envoy Gateway, we shifted CORS handling left to the edge using a `SecurityPolicy` CRD attached directly to the `HTTPRoute`:
+
+```yaml
+# apps/base/ite-bff/security-policy.yaml
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: ite-bff-cors-policy
+  namespace: ite
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: ite-bff-route
+  cors:
+    allowOrigins:
+      - "https://ite-dev.example.com"
+    allowMethods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - OPTIONS
+    allowHeaders:
+      - "*"
+    allowCredentials: true
+```
+
+### Dev-Only localhost Kustomize Overlay Patch
+Frontend developers running locally on `http://localhost:5173` encountered preflight CORS blocks when issuing GraphQL requests against the development cluster (`https://api.ite-dev.example.com/graphql`).
+
+The initial fix failed because the Kustomize patch attempted to modify only index `/0` of `allowOrigins`. I resolved this by patching the entire array strictly inside the development overlay, keeping higher environments secure:
+
+```yaml
+# apps/dev/ite-bff/kustomization.yaml
+patches:
+  - patch: |
+      - op: replace
+        path: /spec/cors/allowOrigins
+        value:
+          - "https://ite-dev.example.com"
+          - "http://localhost:5173"
+    target:
+      kind: SecurityPolicy
+      name: ite-bff-cors-policy
+      namespace: ite
+```
+This guaranteed that `localhost` origins were strictly forbidden from ever leaking into QA, UAT, or Production manifests.
+
+### Azure Blob Storage Direct Upload CORS Paradox
+Developers reported that file uploads (`FileUploadDialog.vue` PUT requests) continued failing CORS preflight even after Envoy CORS policies were active.
+
+By inspecting browser network traces, I isolated the issue:
+- File uploads did **not** route through Envoy Gateway.
+- Clients obtained a short-lived Shared Access Signature (SAS) token and uploaded files directly to Azure Government Blob Storage (`https://<storage-account>.blob.core.usgovcloudapi.net`).
+- The storage account's Blob service had an exact-match protocol mismatch: it had been configured for `https://localhost:5173` instead of `http://localhost:5173`.
+
+Correcting the protocol on the Azure storage account resolved the upload failures without weakening Envoy edge policies.
+
+---
+
+## 6. Post-Migration Triage & Root-Cause Analyses
+
+### 1. EnvoyPatchPolicy Status Check (Accepted vs Programmed)
+- **Observation**: `kubectl get envoypatchpolicy -A` displayed `Accepted: True`, but `Programmed: False` with reason `ResourceNotFound`.
+- **Diagnosis**: The `http` listener patch applied cleanly. The `https-apex` listener was reported as missing because the Dev environment did not yet have active TLS secrets or routes attached to that listener. Once routes were bound, status flipped to `Programmed: True`.
+
+### 2. Isolating OpenSearch 500 Internal Server Errors
+- **Observation**: Queries to OpenSearch returned `500 Internal Server Error`.
+- **Diagnosis**: Audited the Envoy data-plane JSON access logs:
+```json
+{"response_code": 200, "upstream_transport_failure_reason": null}
+```
+Because Envoy logged healthy 200 responses for the edge hop and verified upstream transport integrity, Envoy was eliminated as the root cause. Inspecting `kubectl logs -l app=opensearch -n ite` pinned the 500 error directly to internal OpenSearch index lock contention.
+
+### 3. Schema Registry 503 & Correct Rollout Syntax
+- **Observation**: Requests to `schema-registry.ite-dev.example.com` threw:
+```
+503 Service Unavailable: upstream connect error or disconnect/reset before headers. delayed connect error: Connection refused
+```
+- **Diagnosis**: This signature indicates Envoy is healthy, but the backend pod is unreachable or crashing.
+- **Remediation**: An engineer attempted `kubectl rollout restart svc schema-registry`, which failed because Services are networking abstractions without rollouts. I identified the backing workload controller in `schema-registry-cluster` and triggered a graceful rollout:
+```bash
+# Workloads are StatefulSets in the schema-registry-cluster namespace
+kubectl rollout restart statefulset schema-registry -n schema-registry-cluster
+```
+The pods recovered, and Envoy immediately resumed routing traffic without downtime.
+
+---
+
+## Results & Architecture Outcomes
+
+- **Zero-Downtime Migration**: Successfully transitioned all ingress traffic from NGINX to Envoy Gateway v1.7.0 with zero dropped packets.
+- **Enterprise Gatekeeper Compliance**: Codified resource request and limit baselines satisfying strict Azure Policy requirements.
+- **Edge Security Shift-Left**: Centralized CORS preflight handling at the ingress layer while strictly isolating developer localhost exceptions to non-production overlays.
+- **512k Header Processing**: Successfully preserved large authentication header support via declarative `EnvoyPatchPolicy` configurations.

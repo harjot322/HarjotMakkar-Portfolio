@@ -30,6 +30,19 @@ export function getImageAspectRatio(imgPath: string): string | undefined {
     if (!fs.existsSync(fullPath)) return undefined;
     const buf = fs.readFileSync(fullPath);
     if (buf.length < 24) return undefined;
+    // SVG
+    if (cleanPath.endsWith(".svg")) {
+      const content = buf.toString("utf-8", 0, Math.min(buf.length, 4096));
+      const vbMatch = content.match(/viewBox=["']([\d\.\s,-]+)["']/);
+      if (vbMatch) {
+        const parts = vbMatch[1].trim().split(/[\s,]+/);
+        if (parts.length === 4) {
+          const w = parseFloat(parts[2]);
+          const h = parseFloat(parts[3]);
+          if (w > 0 && h > 0) return `${w} / ${h}`;
+        }
+      }
+    }
     // PNG
     if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) {
       const width = buf.readUInt32BE(16);
