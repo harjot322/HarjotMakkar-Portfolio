@@ -5,7 +5,7 @@ const person: Person = {
   lastName: "Singh Makkar",
   name: `Harjot Singh Makkar`,
   role: "Cloud SRE & Infrastructure Engineer",
-  avatar: "/images/avatar.jpg",
+  avatar: "/images/harjot.jpg",
   email: "harjotdesk@gmail.com",
   location: "Asia/Kolkata", // IANA time zone identifier
   languages: ["English", "Hindi"], // optional: Leave the array empty if you don't want to display languages
