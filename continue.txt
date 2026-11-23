@@ -1,0 +1,113 @@
+================================================================================
+PROJECT STATUS & HANDOVER BRIEF (CONTINUE FILE)
+Generated: 2026-11-23 23:42 IST
+Repository: https://github.com/harjot322/HarjotMakkar-Portfolio
+Default Branch: master (synced with main)
+Owner: Harjot Singh Makkar (harjotdesk@gmail.com)
+Local Working Directory: /Users/harjotmakkar/Agentic/MyWebsite
+Dev Server: http://localhost:3000
+================================================================================
+
+1. CORE RULES & ARCHITECTURAL INVARIANTS (CRITICAL - DO NOT VIOLATE)
+--------------------------------------------------------------------------------
+- NO ELONGATED DASHES: Under NO circumstances use em-dashes (—) or en-dashes (–).
+  Only use standard hyphens (-). Always run a check before committing:
+  `grep -rnE '—|–' src/`
+- STRICT NDA SANITIZATION: Never mention proprietary client, employer, or
+  contractor names (e.g. no Pratt & Whitney, Crecita, internal hostnames,
+  government storage accounts, or colleague names). Use synthetic placeholders
+  like `internal-registry.enterprise.net` or `example.com`.
+- STEP-BY-STEP CADENCE: The user wants to polish and rewrite case studies
+  sequentially, ONE BY ONE. Do not jump ahead until the user provides notes or
+  approves the current case study.
+- ASPECT RATIOS & DIAGRAMS: The image cropper in `src/utils/utils.ts` and
+  `src/app/work/[slug]/page.tsx` dynamically extracts native SVG `viewBox` and
+  PNG/JPEG dimensions and uses `objectFit="contain"` to prevent diagrams from
+  getting clipped on wide screens.
+
+--------------------------------------------------------------------------------
+2. COMPLETED WORK (WHAT HAS BEEN DONE)
+--------------------------------------------------------------------------------
+A. Foundation & Portfolio Setup:
+   - Cloned fresh Magic Portfolio template into `/Users/harjotmakkar/Agentic/MyWebsite`.
+   - Initialized Git repository, connected to `origin` (harjot322/HarjotMakkar-Portfolio),
+     and pushed all progress.
+   - Synchronized `master` with `main` and set `master` as default branch on GitHub.
+   - Removed all Once UI template marketing text, links, and preview workflows.
+   - Integrated Harjot's updated resume (`HarjotResume.pdf`) in `/public/HarjotResume.pdf`
+     and `/public/myself/`.
+   - Added dedicated `/resume` page with PDF download button and navbar entry.
+   - Replaced avatar with `/images/harjot.jpg` (bypassed browser caching).
+   - Global dashboard dash cleanse: 0 elongated dashes across `src/` and docs.
+
+B. Case Study 1: Zero-Downtime Kubernetes Platform Cutover
+   - File: `src/app/work/projects/zero-downtime-kubernetes-platform-cutover.mdx`
+   - URL: http://localhost:3000/work/zero-downtime-kubernetes-platform-cutover
+   - Scope: 15,512 LOC cutover across 107 files in a shared Azure Resource Group.
+   - Content: Controller-first reconciliation, 4 major roadblocks (sealed secrets
+     cert mismatch, Loki PVC race, Zscaler proxy bypass, Azure Blob CSI FUSE
+     attachment paradox), and the Double-Padlock cutover strategy.
+   - Visuals: `/images/projects/zero-downtime-kubernetes-platform-cutover/AKS_cutover.svg`
+     (cover & in-text diagram), `/images/projects/zero-downtime-kubernetes-platform-cutover/pr-summary.jpeg`
+     (PR proof banner), and LinkedIn post link.
+
+C. Case Study 2: Kubernetes Ingress to Envoy Gateway Migration
+   - File: `src/app/work/projects/kubernetes-ingress-envoy-gateway-migration.mdx`
+   - URL: http://localhost:3000/work/kubernetes-ingress-envoy-gateway-migration
+   - Scope: End-to-end migration from ingress-nginx to Envoy Gateway v1.7.0.
+   - Content: FluxCD rollout, Gatekeeper container CPU/memory limit denials on
+     helm certgen hook, Helm release unlock, translation of legacy NGINX annotations
+     to HTTPRoute, JSONPatch EnvoyPatchPolicy for 512k header buffers, edge CORS via
+     SecurityPolicy, Dev-only localhost:5173 overlay patch, Azure Blob SAS upload
+     protocol mismatch debugging, and post-migration triage.
+   - Visuals: Exclusively uses `/images/projects/ingress-to-envoy-migration/Envoy.svg`.
+
+D. Case Study 3: Automating Cloud Inventory Across 400+ AWS Accounts
+   - File: `src/app/work/projects/cloud-inventory-automation-400-accounts.mdx`
+   - URL: http://localhost:3000/work/cloud-inventory-automation-400-accounts
+   - Scope: Automated daily ingestion across 400+ AWS accounts into Amazon Aurora.
+   - Content: Centralized AWS Config Aggregator vs. naive boto3 crawling, KIAM pod
+     identity with cross-account STS role assumption, HashiCorp Vault dynamic DB
+     credentials via CSI Driver (1-hour ephemeral leases), decoupled Aurora
+     storage (JSONB, partitioning, retention lifecycle), FinOps zombie asset
+     reclamation (1,200+ unattached EBS volumes, 6,500+ orphaned snapshots, idle ENIs),
+     and technical nuances ("almost real-time" vs daily pre-business-hours snapshot).
+   - Visuals: `/images/projects/AWS400accounts/400awsaccounts.svg` (diagram),
+     `/images/projects/AWS400accounts/400accounts-dashboard-view.jpeg` (live Grafana view).
+
+--------------------------------------------------------------------------------
+3. WHAT IS CURRENTLY HAPPENING (ACTIVE STATE)
+--------------------------------------------------------------------------------
+- Case Studies 1, 2, and 3 are 100% written, type-checked, committed, and pushed.
+- The Git working tree is completely clean on branch `master`.
+- Remote repository is in sync at commit `c39bff1`.
+- Dev server runs on port 3000.
+
+--------------------------------------------------------------------------------
+4. WHAT TO DO NEXT (WHEN THE USER RETURNS TOMORROW)
+--------------------------------------------------------------------------------
+STEP 1: Await user feedback on Case Study 3 (`cloud-inventory-automation-400-accounts.mdx`).
+        Apply any quick tweaks if requested.
+
+STEP 2: Tackle Case Study #4:
+        - Target File: `src/app/work/projects/storage-workflow-batch-optimization.mdx`
+        - Subject: Storage migration / transfer pipeline optimization (benchmark
+          reduction from ~33 minutes down to ~72 seconds; ~96% throughput gain).
+        - Wait for the user to provide raw notes, architecture context, or diagram files.
+        - Rewrite with high technical depth (batching mechanics, validation, error handling,
+          concurrency, and data integrity).
+        - Ensure zero elongated dashes and strict NDA sanitization.
+
+STEP 3: Tackle Case Study #5:
+        - Target File: `src/app/work/projects/ats-certify-resume-engineering-platform.mdx`
+        - Subject: ATS Certify independent product platform.
+        - Polish architecture, ATS parsing pipeline, scoring algorithms, and product impact.
+
+STEP 4: Polish Additional Portfolio Elements (as requested by user):
+        - Decide whether to hide `/gallery` in `src/resources/once-ui.config.ts` if the
+          user does not want template stock photos.
+        - Add technical skill badges / micro-icons in `src/resources/content.tsx`.
+        - Review blog posts in `src/app/blog/posts/` for formatting and dash cleanliness.
+        - Always run `npx tsc --noEmit` and check for elongated dashes before pushing.
+
+================================================================================
