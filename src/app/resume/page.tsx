@@ -52,7 +52,7 @@ export default function Resume() {
         </Row>
         <Row paddingTop="8" gap="12">
           <Button
-            href="/myself/HarjotSinghMakkar2026updated.pdf"
+            href="/HarjotResume.pdf"
             prefixIcon="document"
             label="Download PDF Résumé"
             size="m"

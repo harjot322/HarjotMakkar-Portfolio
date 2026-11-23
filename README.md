@@ -37,7 +37,7 @@ src/app/work/projects/*.mdx     — project case studies
 
 **5. Add your resume PDF**
 ```
-public/myself/HarjotSinghMakkar2026updated.pdf
+public/HarjotResume.pdf
 ```
 
 ## Project Structure
