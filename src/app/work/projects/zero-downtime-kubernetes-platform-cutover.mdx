@@ -1,0 +1,54 @@
+---
+title: "Zero-Downtime Kubernetes Platform Cutover with GitOps and Terraform"
+publishedAt: "2025-06-01"
+summary: "Contributed to a large-scale production Kubernetes platform cutover using declarative GitOps and Terraform, coordinating staged reconciliation steps to preserve service availability with zero downtime."
+images:
+  - "/images/projects/project-01/cover-01.jpg"
+team:
+  - name: "Harjot Singh Makkar"
+    role: "Cloud SRE"
+    avatar: "/images/avatar.jpg"
+    linkedIn: "https://linkedin.com/in/harjotmakkar322"
+---
+
+## Overview
+
+Moving live production workloads and cluster state between Kubernetes environments carries significant risk — service disruption, configuration drift, broken dependencies, and inconsistent infrastructure state. This project involved contributing to a live production Kubernetes cluster cutover, working with AKS, FluxCD, GitOps, and Terraform across a large-scale infrastructure change.
+
+## Context and Constraints
+
+The environment operated production workloads requiring continuous availability. The cutover involved a large declarative infrastructure and GitOps change, requiring careful staged reconciliation to avoid configuration drift and dependency breakage.
+
+## Challenge
+
+Executing a production Kubernetes platform change without service interruption required:
+- Coordinating GitOps state reconciliation across multiple Flux controllers
+- Preserving workload availability during infrastructure state transfer
+- Validating cluster health at each stage before proceeding
+- Keeping infrastructure changes auditable and reversible
+
+## Technical Approach
+
+- Worked with **AKS**, **FluxCD**, and **Terraform / OpenTofu** to manage cluster and workload state
+- Coordinated staged reconciliation steps, verifying health at each checkpoint
+- Used declarative GitOps configuration to maintain a reviewable and version-controlled change record
+- Applied environment-specific Terraform overlays to manage infrastructure boundaries cleanly
+
+## Reliability and Validation
+
+- Monitored service health throughout the cutover using observability tooling
+- Used GitOps reconciliation status and pod-readiness signals to verify workload health before each step
+- Maintained rollback capability by keeping the prior infrastructure state intact until validation was complete
+
+## Results
+
+- Zero downtime during the cutover, with workloads migrated without service interruption
+- Large infrastructure and GitOps change successfully codified and reviewed through version-controlled workflows
+
+## Lessons Learned
+
+Staged reconciliation — moving in small, verifiable increments rather than one large switch — is essential for safe production Kubernetes migrations. Having a clear rollback path at each stage reduces pressure and allows the team to pause and investigate rather than racing to fix forward.
+
+## Technology Tags
+
+AKS · Kubernetes · FluxCD · GitOps · Terraform · OpenTofu · Helm · Microservices · Infrastructure state management

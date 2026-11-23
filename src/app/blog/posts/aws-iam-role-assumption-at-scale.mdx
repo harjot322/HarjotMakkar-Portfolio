@@ -1,0 +1,143 @@
+---
+title: "Multi-Account AWS Automation: IAM Role Assumption at Scale"
+publishedAt: "2025-03-05"
+summary: "Running automation across hundreds of AWS accounts doesn't require long-lived credentials in every account. Here's how IAM role assumption creates a scalable, auditable, and secure cross-account access pattern."
+image: "/images/projects/project-01/cover-03.jpg"
+---
+
+## The Problem With Per-Account Credentials
+
+If you need to query inventory, apply configuration, or collect metrics across a large AWS estate, the naive approach is to maintain credentials for each account. This creates a credential management problem that scales with the number of accounts — hundreds of access keys to rotate, audit, and secure.
+
+IAM role assumption solves this. A single automation account holds a minimal identity. Each target account has a role that trusts that identity. The automation assumes that role when it needs to work in a target account, operates for the duration of the task, and releases the temporary credentials when done.
+
+## How Role Assumption Works
+
+```
+Automation Account (IAM User/Role)
+  │
+  ├── AssumeRole → Account A (arn:aws:iam::111111111111:role/AutomationRole)
+  │                └── temporary credentials → scoped to Account A
+  │
+  ├── AssumeRole → Account B (arn:aws:iam::222222222222:role/AutomationRole)
+  │                └── temporary credentials → scoped to Account B
+  │
+  └── AssumeRole → Account C ...
+```
+
+Each temporary credential set has a maximum lifetime (typically 1 hour). After the automation completes its work in that account, the credentials expire automatically. There are no long-lived credentials to rotate or secure per account.
+
+## The Trust Relationship
+
+In each target account, the AutomationRole has a trust policy that allows the automation account identity to assume it:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::AUTOMATION_ACCOUNT_ID:role/AutomationExecutorRole"
+      },
+      "Action": "sts:AssumeRole",
+      "Condition": {
+        "StringEquals": {
+          "sts:ExternalId": "your-external-id"
+        }
+      }
+    }
+  ]
+}
+```
+
+The ExternalId condition prevents confused-deputy attacks, where a third party tricks your automation into assuming a role on their behalf.
+
+## Python Implementation Pattern
+
+```python
+import boto3
+from typing import Generator
+
+def assume_role(account_id: str, role_name: str, session_name: str) -> dict:
+    """Assume a role in a target account and return temporary credentials."""
+    sts = boto3.client("sts")
+    response = sts.assume_role(
+        RoleArn=f"arn:aws:iam::{account_id}:role/{role_name}",
+        RoleSessionName=session_name,
+        DurationSeconds=3600,
+    )
+    return response["Credentials"]
+
+def get_cross_account_client(account_id: str, service: str, role_name: str):
+    """Return a boto3 client for a specific account and service."""
+    creds = assume_role(account_id, role_name, f"inventory-{account_id}")
+    return boto3.client(
+        service,
+        aws_access_key_id=creds["AccessKeyId"],
+        aws_secret_access_key=creds["SecretAccessKey"],
+        aws_session_token=creds["SessionToken"],
+    )
+
+def collect_inventory(account_ids: list[str], role_name: str) -> Generator:
+    """Collect EC2 inventory across multiple accounts."""
+    for account_id in account_ids:
+        try:
+            ec2 = get_cross_account_client(account_id, "ec2", role_name)
+            paginator = ec2.get_paginator("describe_instances")
+            for page in paginator.paginate():
+                for reservation in page["Reservations"]:
+                    for instance in reservation["Instances"]:
+                        yield {"account_id": account_id, "instance": instance}
+        except Exception as e:
+            # Log the failure for this account and continue
+            print(f"Failed to collect inventory for {account_id}: {e}")
+```
+
+## Integrating Secrets Management
+
+The automation executor's own credentials shouldn't be static environment variables. Use a secrets manager (HashiCorp Vault, AWS Secrets Manager) to provide the base identity:
+
+```python
+import hvac
+
+def get_automation_role_credentials() -> dict:
+    """Retrieve base automation credentials from Vault."""
+    client = hvac.Client(url=vault_url, token=vault_token)
+    secret = client.secrets.aws.generate_credentials(name="automation-role")
+    return secret["data"]
+```
+
+## Scheduling With Kubernetes CronJobs
+
+Containerize the automation and schedule it as a Kubernetes CronJob for reliable recurring execution:
+
+```yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cloud-inventory-collector
+spec:
+  schedule: "0 2 * * *"  # Run at 2 AM daily
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: inventory-collector
+            image: your-registry/inventory-collector:latest
+            envFrom:
+            - secretRef:
+                name: vault-credentials
+          restartPolicy: OnFailure
+```
+
+## Key Takeaways
+
+1. **No long-lived per-account credentials**: Role assumption provides temporary, scoped access
+2. **ExternalId for trust boundary**: Prevents confused-deputy attacks
+3. **Handle partial failures gracefully**: One account failing shouldn't stop collection for others
+4. **Schedule through Kubernetes CronJobs**: Reliable, observable, and auditable execution
+5. **Integrate secrets management**: Base identity credentials should come from a secrets manager, not environment variables
+
+Scaling this pattern from 10 accounts to 400+ accounts requires no architectural changes — just more entries in the account list.

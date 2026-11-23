@@ -1,0 +1,54 @@
+---
+title: "Modernizing Kubernetes Ingress with a Zero-Drop Envoy Gateway Migration"
+publishedAt: "2025-05-01"
+summary: "Contributed to a Kubernetes ingress modernization effort, moving traffic from a legacy Nginx Ingress controller to Envoy Gateway with zero dropped requests during migration."
+images:
+  - "/images/projects/project-01/cover-02.jpg"
+team:
+  - name: "Harjot Singh Makkar"
+    role: "Cloud SRE"
+    avatar: "/images/avatar.jpg"
+    linkedIn: "https://linkedin.com/in/harjotmakkar322"
+---
+
+## Overview
+
+An end-of-life ingress component creates maintenance, security, and lifecycle risks in a production Kubernetes environment. This project involved migrating Kubernetes ingress infrastructure from Nginx Ingress to Envoy Gateway / Envoy Proxy, replacing the end-of-life component while serving live traffic.
+
+## Context and Constraints
+
+The environment served live production traffic through the existing Nginx Ingress controller. The migration required maintaining service routes for all workloads, validating that replacement routes behaved identically, and decommissioning the old ingress layer safely.
+
+## Challenge
+
+- Replacing ingress infrastructure without disrupting live traffic
+- Ensuring route compatibility across all workloads during the transition period
+- Validating that the new Envoy Gateway routes handled edge cases correctly
+- Safely decommissioning the old ingress layer after validation
+
+## Technical Approach
+
+- Planned traffic migration with parallel routing during the transition period
+- Used Envoy Gateway's Gateway API resources to define replacement routes
+- Validated route behavior and traffic handling before shifting load
+- Executed a controlled cutover with monitoring active throughout
+
+## Reliability and Validation
+
+- Monitored request success rates throughout the migration using observability tooling
+- Maintained the legacy Nginx Ingress controller in parallel until all routes were validated on Envoy Gateway
+- Decommissioned the old ingress layer only after traffic validation confirmed zero dropped requests
+
+## Results
+
+- Zero dropped requests during the migration, based on traffic validation
+- Replaced an end-of-life ingress component with a modern gateway-based approach
+- Improved long-term ingress maintainability and reduced lifecycle risk
+
+## Lessons Learned
+
+Parallel routing during ingress migrations — running both old and new controllers briefly while shifting traffic incrementally — dramatically reduces the risk of a hard cutover. Defining success criteria (zero dropped requests, route coverage) before starting ensures the team has clear checkpoints.
+
+## Technology Tags
+
+Kubernetes · Nginx Ingress · Envoy Gateway · Envoy Proxy · Traffic migration · Production validation · Kubernetes networking

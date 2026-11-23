@@ -1,0 +1,62 @@
+---
+title: "Why a Successful Backup Job Doesn't Prove Disaster Recovery"
+publishedAt: "2025-05-15"
+summary: "A scheduled backup job completing with exit code 0 is not evidence that your system is recoverable. Here's why backup verification and restore probes are a separate engineering concern."
+image: "/images/projects/project-01/cover-01.jpg"
+---
+
+## The Assumption Nobody Checks
+
+When a backup CronJob reports success, it means the backup process ran without crashing. It doesn't tell you whether the resulting snapshot is complete, consistent, or restorable. These are different properties, and conflating them creates a false sense of recovery readiness.
+
+I encountered this directly while working on OpenSearch backup workflows. A scheduled snapshot job would complete without errors, the monitoring would show green, and the team had reasonable confidence in backup coverage. But nobody had tested whether those snapshots could actually be restored.
+
+## What "Backup Success" Actually Means
+
+A backup process succeeds when:
+- The process starts
+- It doesn't crash
+- It exits with code 0
+
+That's it. None of that tells you:
+- Whether the snapshot contains the data you expected
+- Whether the snapshot is internally consistent
+- Whether the destination storage accepted and stored the data correctly
+- Whether the snapshot can actually be used to restore the system
+
+## The OpenSearch Case
+
+OpenSearch snapshot completion status tells you the job finished. It doesn't verify that every shard was included, that the snapshot repository is in a healthy state, or that a restore from that snapshot would succeed.
+
+We extended the backup workflow to include an explicit verification step — a separate process that:
+1. Listed recent snapshots and checked their reported state
+2. Verified the snapshot repository metadata was consistent
+3. Attempted a restore into an isolated environment (a restore probe)
+4. Confirmed that the restored state matched expectations
+
+This verification step surfaced issues that the backup success signal never would have caught on its own.
+
+## Designing Restore Probes
+
+A restore probe is an automated process that validates a backup artifact by actually using it. For database systems:
+- Restore the most recent snapshot to an isolated target
+- Run integrity checks against the restored data
+- Confirm that the data matches expected structure and record counts
+- Alert if the restore fails or the validation doesn't pass
+
+The probe should run on a schedule separate from the backup schedule. Ideally, every backup should be followed by a restore probe within a reasonable window.
+
+## Implications for SRE Practice
+
+Backup verification is a reliability concern, not a storage concern. It belongs in SRE practice because it answers the question: **If we needed to recover right now, would we succeed?**
+
+The correct mental model is not "do we have backups?" but "can we recover?" These are related but distinct questions. A system with verified, restorable backups can answer the second question. A system with unverified backup jobs can only answer the first.
+
+## Practical Takeaways
+
+1. Add a restore probe to every critical backup workflow
+2. Treat backup verification failures as incidents, not noise
+3. Define a recovery time objective (RTO) and test whether your restore process meets it
+4. Never report backup coverage as "healthy" unless restore validation is part of the check
+
+A successful backup job is a starting point. Recovery readiness requires proof that the artifact can be used.

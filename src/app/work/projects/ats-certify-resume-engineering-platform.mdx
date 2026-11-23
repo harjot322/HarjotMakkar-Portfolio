@@ -1,0 +1,54 @@
+---
+title: "ATS Certify: Building a Résumé Engineering and Validation Platform"
+publishedAt: "2025-01-01"
+summary: "Building ATS Certify — an independent résumé engineering platform that helps job seekers create clean, ATS-friendly résumés through structured parsing, deterministic validation checks, and targeted AI-assisted semantic feedback."
+images:
+  - "/images/projects/project-01/cover-01.jpg"
+team:
+  - name: "Harjot Singh Makkar"
+    role: "Founder & Engineer"
+    avatar: "/images/avatar.jpg"
+    linkedIn: "https://linkedin.com/in/harjotmakkar322"
+link: "https://atscertify.com"
+---
+
+## Overview
+
+Most résumé tools optimize for visual design rather than parser compatibility. ATS Certify is an independent software product focused on the opposite problem: helping job seekers create clean, structured, ATS-readable résumés and validating their documents against a comprehensive set of structured checks.
+
+## Product Concept
+
+ATS Certify focuses on:
+- **Parser-friendly structure**: Single-column layouts, avoiding tables, decorative icons, and complex formatting that may interfere with ATS parsing
+- **Content import and extraction**: Users can import an existing résumé, extract and structure its content
+- **Structured validation**: 30+ planned validation checks covering layout, formatting, completeness, and consistency
+- **Actionable feedback**: Clear suggestions rather than generic scores
+- **Clean output**: Generate a validated, ATS-optimized résumé
+
+## Technical Approach
+
+- **Deterministic custom parsing logic** as the foundation — not an LLM guess about structure
+- A structured **validation pipeline** that applies specific checks in sequence
+- A **results dashboard** presenting actionable feedback per check
+- **Gemini API endpoints** for semantic text analysis of content quality
+- A deliberate boundary between semantic analysis (AI-assisted) and deterministic application state, request routing, and core validation logic
+
+## Engineering Philosophy Behind the Product
+
+The core insight is that résumé validation has two distinct problem types:
+1. **Deterministic checks** (is the section present? is the formatting clean? are dates consistent?) — these should never be delegated to an LLM
+2. **Semantic quality checks** (is this bullet result-oriented? does the summary match the experience?) — targeted AI assistance adds value here
+
+Mixing these arbitrarily produces inconsistent, untrustworthy validation. Keeping them separate produces a reliable product.
+
+## Status
+
+ATS Certify is an independent product in active development. Features listed above represent the product direction; the specific live feature set should be verified at [atscertify.com](https://atscertify.com).
+
+## Lessons Learned
+
+Building a solo SaaS product teaches a different kind of engineering discipline than infrastructure work. Product decisions, architecture trade-offs, and delivery timelines all land on one person. The engineering challenge of drawing the right boundary between deterministic logic and AI assistance has been the most interesting design decision so far.
+
+## Technology Tags
+
+SaaS · Résumé tooling · Gemini API · Semantic analysis · Deterministic validation · React · Node.js · Backend architecture

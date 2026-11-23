@@ -1,0 +1,77 @@
+---
+title: "Kubernetes Ingress Migration: How to Move Traffic Without Dropping Requests"
+publishedAt: "2025-04-10"
+summary: "Replacing an ingress controller in a live Kubernetes cluster is risky if done as a hard cutover. Here's a pattern for migrating traffic safely using parallel routing and incremental validation."
+image: "/images/projects/project-01/cover-02.jpg"
+---
+
+## The Problem With Hard Cutovers
+
+Replacing a Kubernetes ingress controller by deleting the old one and creating the new one is the fastest approach, and also the most likely to cause an outage. Even a brief period where neither controller is handling traffic results in dropped requests and frustrated users.
+
+When migrating from Nginx Ingress to Envoy Gateway, the safer approach is parallel routing: running both controllers simultaneously while incrementally shifting traffic, then validating behavior before decommissioning the old controller.
+
+## Why Parallel Routing Works
+
+The core insight is simple: you don't have to choose between old and new. During a migration window, you can:
+1. Deploy the new controller alongside the existing one
+2. Define replacement routes on the new controller
+3. Validate that the new routes handle traffic correctly
+4. Shift traffic incrementally (or all at once if validation passes)
+5. Decommission the old controller only after traffic validation is complete
+
+This approach maintains a rollback path at every stage. If the new routes behave unexpectedly, you haven't yet removed the old ones.
+
+## The Migration Pattern in Practice
+
+### Step 1: Deploy the new controller without traffic
+
+Install Envoy Gateway (or your replacement ingress controller) into the cluster without changing any existing Ingress resources. At this point, the new controller exists but serves no traffic.
+
+```bash
+helm install envoy-gateway oci://docker.io/envoyproxy/gateway-helm \
+  --version v1.2.0 \
+  -n envoy-gateway-system \
+  --create-namespace
+```
+
+### Step 2: Create a GatewayClass and Gateway
+
+Define the new gateway infrastructure and verify it reaches the Ready state before creating any routes.
+
+### Step 3: Create mirror routes on the new controller
+
+For each existing Ingress route, create an equivalent HTTPRoute on the new Gateway. At this point, traffic still flows through Nginx Ingress. The new routes exist but have no external traffic.
+
+### Step 4: Validate route behavior
+
+Test the new routes directly — bypassing DNS — to verify they handle requests correctly, including edge cases like path rewrites, header rules, and backend service routing.
+
+### Step 5: Shift DNS to the new controller
+
+Update DNS records (or update the LoadBalancer service selector) to point to the Envoy Gateway Load Balancer. Monitor request success rates throughout.
+
+### Step 6: Decommission the old controller
+
+Only after traffic validation confirms zero dropped requests should you remove the old Nginx Ingress resources and uninstall the old controller.
+
+## What to Monitor During Migration
+
+- **Request success rate**: HTTP 2xx/3xx responses as a percentage of total requests
+- **Error rate**: HTTP 4xx/5xx responses, particularly 502/503/504 which indicate routing failures
+- **Latency distribution**: Confirm p50/p95/p99 latency is consistent with pre-migration baselines
+- **Backend health**: Verify backend pods are receiving requests and responding correctly
+
+## Common Issues to Watch For
+
+**TLS termination differences**: Nginx Ingress and Envoy Gateway handle TLS configuration differently. Validate certificate handling before shifting live traffic.
+
+**Annotation compatibility**: Nginx-specific annotations (`nginx.ingress.kubernetes.io/*`) have no equivalent on Envoy Gateway. Translate these to HTTPRoute filter rules before switching.
+
+**Header modification rules**: Verify that any header addition/removal rules are correctly replicated in the new route configuration.
+
+## The Zero-Drop Result
+
+The goal is a migration where monitoring shows no increase in error rate and no dropped requests throughout the transition. This is achievable with parallel routing and careful validation — but only if you define success criteria before starting and monitor them actively during the cutover.
+
+A hard cutover trades safety for speed. Parallel routing trades a slightly longer migration window for a verifiable result.

@@ -1,0 +1,55 @@
+---
+title: "Automating Cloud Inventory Across 400+ Accounts"
+publishedAt: "2025-04-01"
+summary: "Built a Python-driven cloud inventory workflow spanning more than 400 accounts, combining cross-account access, secure credential handling, Kubernetes scheduling, and operational dashboards to reduce recurring reporting effort by up to 90%."
+images:
+  - "/images/projects/project-01/cover-03.jpg"
+team:
+  - name: "Harjot Singh Makkar"
+    role: "Cloud SRE"
+    avatar: "/images/avatar.jpg"
+    linkedIn: "https://linkedin.com/in/harjotmakkar322"
+---
+
+## Overview
+
+Collecting cloud resource inventory and operational reports across hundreds of accounts manually is slow, repetitive, inconsistent, and difficult to scale. This project involved building Python-based inventory automation across a large multi-account cloud estate, replacing a manual reporting process with a consistent, scheduled, and observable workflow.
+
+## Context and Constraints
+
+The environment comprised more than 400 cloud accounts requiring regular inventory collection. Manual collection was time-consuming and prone to gaps. The automation needed to operate with controlled cross-account access and handle credentials safely.
+
+## Challenge
+
+- Collecting consistent inventory across 400+ accounts at scale
+- Managing cross-account access securely using IAM role assumption
+- Handling credentials through secrets management rather than static keys
+- Scheduling recurring automation reliably with operational visibility
+
+## Technical Approach
+
+- Built **Python** automation using **IAM role assumption** for controlled cross-account access
+- Integrated credential handling through **HashiCorp Vault** / KIAM-related patterns to avoid static credentials
+- Containerized automation and scheduled it using **Kubernetes CronJobs**
+- Used **Liquibase** as part of database schema change workflows for inventory storage
+- Integrated reporting and visibility into **Grafana** dashboards for operational teams
+
+## Reliability and Validation
+
+- Implemented error handling for account access failures, ensuring partial failures didn't silently corrupt reports
+- Used structured logging to make CronJob execution auditable and debuggable
+- Validated inventory completeness through record counts and cross-checks
+
+## Results
+
+- Up to 90% reduction in recurring reporting effort, based on the time previously spent on manual collection
+- More consistent, repeatable inventory collection across the multi-account estate
+- Operational visibility improved through Grafana dashboard integration
+
+## Lessons Learned
+
+Containerizing automation and scheduling it through Kubernetes CronJobs creates a disciplined execution model: the job runs on schedule, produces observable output, and can be debugged through standard tooling. Using IAM role assumption — rather than long-lived credentials — is the right default for cross-account AWS automation.
+
+## Technology Tags
+
+Python · AWS · IAM · Cross-account automation · HashiCorp Vault · Kubernetes CronJobs · Liquibase · Grafana · Multi-account cloud

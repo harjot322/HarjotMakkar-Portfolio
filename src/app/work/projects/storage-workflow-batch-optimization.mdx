@@ -1,0 +1,54 @@
+---
+title: "Accelerating Large-Scale Storage Workflows with Validated Batch Processing"
+publishedAt: "2025-03-01"
+summary: "Reworked a storage-transfer workflow to reduce per-file overhead through batch processing and validation, cutting benchmark runtime from ~33 minutes to ~72 seconds — a ~96% improvement in throughput."
+images:
+  - "/images/projects/project-01/cover-04.jpg"
+team:
+  - name: "Harjot Singh Makkar"
+    role: "Cloud SRE"
+    avatar: "/images/avatar.jpg"
+    linkedIn: "https://linkedin.com/in/harjotmakkar322"
+---
+
+## Overview
+
+Sequential per-file transfer workflows introduce substantial overhead when processing very large file collections, making migration preparation and validation too slow for practical operational windows. This project involved refactoring a storage-transfer workflow from sequential per-file execution toward validated batch processing.
+
+## Context and Constraints
+
+The workflow operated against a large file collection (benchmark scale: ~1.6 million files). Sequential per-file execution was creating a bottleneck that made the workflow impractical for the intended migration scale.
+
+## Challenge
+
+- Eliminating sequential per-file overhead without sacrificing transfer integrity
+- Adding validation safeguards to detect data loss or corruption during batch processing
+- Producing a workflow fast enough to fit within operational time constraints
+
+## Technical Approach
+
+- Refactored the workflow from sequential iteration to validated batch processing using **Bash**
+- Identified the per-file overhead as the primary bottleneck and restructured execution to process files in batches
+- Added validation logic to compare source and destination counts, detecting issues before confirming completion
+- Maintained transfer integrity checks throughout the batch process
+
+## Reliability and Validation
+
+- Validation safeguards were added at batch boundaries to verify count and completeness
+- Error handling was structured to surface failures clearly rather than silently continuing with a corrupted state
+- Benchmark testing was performed with controlled inputs to verify the speedup was consistent
+
+## Results
+
+- Benchmark runtime reduced from approximately **33 minutes to approximately 72 seconds**
+- Approximately **96% reduction in runtime** for the benchmark workload
+- Approximately **27x speedup** demonstrated across the test dataset
+- Workflow made practical for large-scale migration preparation
+
+## Lessons Learned
+
+Sequential per-file processing is often the first implementation approach, but it rarely scales. The key insight here was identifying where overhead accumulated (per-file initialization and validation overhead) and restructuring around batches. Adding validation at batch boundaries — rather than per-file — maintained integrity without reintroducing the bottleneck.
+
+## Technology Tags
+
+Bash · Batch processing · Storage pipelines · Performance optimization · Data validation · Shell scripting
