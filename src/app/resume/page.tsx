@@ -4,11 +4,11 @@ import { Meta } from "@once-ui-system/core";
 
 export async function generateMetadata() {
   const metadata = Meta.generate({
-    title: `Résumé – ${person.name}`,
+    title: `Résumé - ${person.name}`,
     description: `Cloud SRE and Infrastructure Engineer résumé for ${person.name}`,
     baseURL: baseURL,
     path: "/resume",
-    image: `/api/og/generate?title=${encodeURIComponent(`Résumé – ${person.name}`)}`,
+    image: `/api/og/generate?title=${encodeURIComponent(`Résumé - ${person.name}`)}`,
   });
   return { ...metadata, alternates: { canonical: metadata.openGraph.url } };
 }
@@ -92,14 +92,14 @@ export default function Resume() {
               </Text>
             </Column>
             <Text variant="heading-default-xs" onBackground="neutral-weak">
-              Nov 2024 – Present
+              Nov 2024 - Present
             </Text>
           </Row>
           <Column as="ul" gap="8">
             {[
               "Contributed to a production Kubernetes platform cutover (AKS, FluxCD, Terraform) with zero service downtime.",
               "Modernized Kubernetes ingress from Nginx Ingress to Envoy Gateway with zero dropped requests during migration.",
-              "Built Python-based cloud inventory automation across 400+ accounts using IAM role assumption and Kubernetes CronJobs — reducing reporting effort by up to 90%.",
+              "Built Python-based cloud inventory automation across 400+ accounts using IAM role assumption and Kubernetes CronJobs - reducing reporting effort by up to 90%.",
               "Reworked a storage-transfer workflow from sequential to batch processing, reducing benchmark runtime from ~33 min to ~72 sec (~96% improvement).",
               "Contributed to event-streaming infrastructure cleanup across 50+ Azure Event Hubs in four environments.",
               "Improved OpenSearch backup reliability by adding automated restore-probe verification.",
@@ -123,7 +123,7 @@ export default function Resume() {
               </Text>
             </Column>
             <Text variant="heading-default-xs" onBackground="neutral-weak">
-              Aug 2024 – Nov 2024
+              Aug 2024 - Nov 2024
             </Text>
           </Row>
           <Column as="ul" gap="8">

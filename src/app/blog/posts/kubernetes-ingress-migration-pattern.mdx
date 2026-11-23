@@ -45,7 +45,7 @@ For each existing Ingress route, create an equivalent HTTPRoute on the new Gatew
 
 ### Step 4: Validate route behavior
 
-Test the new routes directly — bypassing DNS — to verify they handle requests correctly, including edge cases like path rewrites, header rules, and backend service routing.
+Test the new routes directly - bypassing DNS - to verify they handle requests correctly, including edge cases like path rewrites, header rules, and backend service routing.
 
 ### Step 5: Shift DNS to the new controller
 
@@ -72,6 +72,6 @@ Only after traffic validation confirms zero dropped requests should you remove t
 
 ## The Zero-Drop Result
 
-The goal is a migration where monitoring shows no increase in error rate and no dropped requests throughout the transition. This is achievable with parallel routing and careful validation — but only if you define success criteria before starting and monitor them actively during the cutover.
+The goal is a migration where monitoring shows no increase in error rate and no dropped requests throughout the transition. This is achievable with parallel routing and careful validation - but only if you define success criteria before starting and monitor them actively during the cutover.
 
 A hard cutover trades safety for speed. Parallel routing trades a slightly longer migration window for a verifiable result.

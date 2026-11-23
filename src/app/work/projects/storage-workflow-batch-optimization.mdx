@@ -1,7 +1,7 @@
 ---
 title: "Accelerating Large-Scale Storage Workflows with Validated Batch Processing"
 publishedAt: "2025-03-01"
-summary: "Reworked a storage-transfer workflow to reduce per-file overhead through batch processing and validation, cutting benchmark runtime from ~33 minutes to ~72 seconds — a ~96% improvement in throughput."
+summary: "Reworked a storage-transfer workflow to reduce per-file overhead through batch processing and validation, cutting benchmark runtime from ~33 minutes to ~72 seconds - a ~96% improvement in throughput."
 images:
   - "/images/projects/project-01/cover-04.jpg"
 team:
@@ -47,7 +47,7 @@ The workflow operated against a large file collection (benchmark scale: ~1.6 mil
 
 ## Lessons Learned
 
-Sequential per-file processing is often the first implementation approach, but it rarely scales. The key insight here was identifying where overhead accumulated (per-file initialization and validation overhead) and restructuring around batches. Adding validation at batch boundaries — rather than per-file — maintained integrity without reintroducing the bottleneck.
+Sequential per-file processing is often the first implementation approach, but it rarely scales. The key insight here was identifying where overhead accumulated (per-file initialization and validation overhead) and restructuring around batches. Adding validation at batch boundaries - rather than per-file - maintained integrity without reintroducing the bottleneck.
 
 ## Technology Tags
 

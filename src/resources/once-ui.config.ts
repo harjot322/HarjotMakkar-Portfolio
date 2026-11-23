@@ -186,7 +186,7 @@ const newsletterForm: NewsletterFormConfig = {
   },
 };
 
-// default schema data — pulls from content.tsx so there's one source of truth
+// default schema data - pulls from content.tsx so there's one source of truth
 const schema: SchemaConfig = {
   logo: "",
   type: "Person",
@@ -195,7 +195,7 @@ const schema: SchemaConfig = {
   email: person.email,
 };
 
-// social links — derived from the social array in content.tsx to avoid duplication
+// social links - derived from the social array in content.tsx to avoid duplication
 const sameAs: SameAsConfig = {
   threads: social.find((s) => s.name === "Threads")?.link ?? "",
   linkedin: social.find((s) => s.name === "LinkedIn")?.link ?? "",

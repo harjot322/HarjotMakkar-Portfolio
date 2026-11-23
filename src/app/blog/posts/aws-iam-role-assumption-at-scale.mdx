@@ -7,7 +7,7 @@ image: "/images/projects/project-01/cover-03.jpg"
 
 ## The Problem With Per-Account Credentials
 
-If you need to query inventory, apply configuration, or collect metrics across a large AWS estate, the naive approach is to maintain credentials for each account. This creates a credential management problem that scales with the number of accounts — hundreds of access keys to rotate, audit, and secure.
+If you need to query inventory, apply configuration, or collect metrics across a large AWS estate, the naive approach is to maintain credentials for each account. This creates a credential management problem that scales with the number of accounts - hundreds of access keys to rotate, audit, and secure.
 
 IAM role assumption solves this. A single automation account holds a minimal identity. Each target account has a role that trusts that identity. The automation assumes that role when it needs to work in a target account, operates for the duration of the task, and releases the temporary credentials when done.
 
@@ -140,4 +140,4 @@ spec:
 4. **Schedule through Kubernetes CronJobs**: Reliable, observable, and auditable execution
 5. **Integrate secrets management**: Base identity credentials should come from a secrets manager, not environment variables
 
-Scaling this pattern from 10 accounts to 400+ accounts requires no architectural changes — just more entries in the account list.
+Scaling this pattern from 10 accounts to 400+ accounts requires no architectural changes - just more entries in the account list.

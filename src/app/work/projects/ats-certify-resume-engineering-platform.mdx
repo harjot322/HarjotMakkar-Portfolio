@@ -1,7 +1,7 @@
 ---
 title: "ATS Certify: Building a Résumé Engineering and Validation Platform"
 publishedAt: "2025-01-01"
-summary: "Building ATS Certify — an independent résumé engineering platform that helps job seekers create clean, ATS-friendly résumés through structured parsing, deterministic validation checks, and targeted AI-assisted semantic feedback."
+summary: "Building ATS Certify - an independent résumé engineering platform that helps job seekers create clean, ATS-friendly résumés through structured parsing, deterministic validation checks, and targeted AI-assisted semantic feedback."
 images:
   - "/images/projects/project-01/cover-01.jpg"
 team:
@@ -27,7 +27,7 @@ ATS Certify focuses on:
 
 ## Technical Approach
 
-- **Deterministic custom parsing logic** as the foundation — not an LLM guess about structure
+- **Deterministic custom parsing logic** as the foundation - not an LLM guess about structure
 - A structured **validation pipeline** that applies specific checks in sequence
 - A **results dashboard** presenting actionable feedback per check
 - **Gemini API endpoints** for semantic text analysis of content quality
@@ -36,8 +36,8 @@ ATS Certify focuses on:
 ## Engineering Philosophy Behind the Product
 
 The core insight is that résumé validation has two distinct problem types:
-1. **Deterministic checks** (is the section present? is the formatting clean? are dates consistent?) — these should never be delegated to an LLM
-2. **Semantic quality checks** (is this bullet result-oriented? does the summary match the experience?) — targeted AI assistance adds value here
+1. **Deterministic checks** (is the section present? is the formatting clean? are dates consistent?) - these should never be delegated to an LLM
+2. **Semantic quality checks** (is this bullet result-oriented? does the summary match the experience?) - targeted AI assistance adds value here
 
 Mixing these arbitrarily produces inconsistent, untrustworthy validation. Keeping them separate produces a reliable product.
 

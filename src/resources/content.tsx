@@ -49,7 +49,7 @@ const home: Home = {
   featured: {
     display: true,
     title: (
-      <strong className="ml-4">Featured: Kubernetes Zero-Downtime Cutover</strong>
+      <strong className="ml-4">Featured: Zero-Downtime AKS Cutover via Flux GitOps (15.5k LOC)</strong>
     ),
     href: "/work/zero-downtime-kubernetes-platform-cutover",
   },
@@ -64,7 +64,7 @@ const home: Home = {
 const about: About = {
   path: "/about",
   label: "About",
-  title: `About – ${person.name}`,
+  title: `About - ${person.name}`,
   description: `Cloud SRE and Infrastructure Engineer from Delhi, India. Focused on Kubernetes, GitOps, Terraform, observability, DevSecOps, and production reliability.`,
   tableOfContent: {
     display: true,
@@ -91,7 +91,7 @@ const about: About = {
         testable, and recoverable. I care about operational ownership and measurable outcomes, not simply whether a
         deployment command completed successfully.
         <br /><br />
-        Outside my infrastructure work, I am building ATS Certify — a résumé engineering and validation platform —
+        Outside my infrastructure work, I am building ATS Certify - a résumé engineering and validation platform -
         and documenting engineering ideas through technical writing on Substack.
       </>
     ),
@@ -102,7 +102,7 @@ const about: About = {
     experiences: [
       {
         company: "Remote Enterprise Infrastructure",
-        timeframe: "Nov 2024 – Present",
+        timeframe: "Nov 2024 - Present",
         role: "Cloud Site Reliability Engineer",
         achievements: [
           <>
@@ -115,11 +115,11 @@ const about: About = {
           </>,
           <>
             Built Python-driven cloud inventory automation spanning 400+ accounts using IAM role assumption,
-            Kubernetes CronJobs, and Grafana dashboards — reducing recurring reporting effort by up to 90%.
+            Kubernetes CronJobs, and Grafana dashboards - reducing recurring reporting effort by up to 90%.
           </>,
           <>
             Reworked a large-scale storage-transfer workflow using validated batch processing, reducing a benchmark
-            runtime from ~33 minutes to ~72 seconds — a ~96% improvement in throughput.
+            runtime from ~33 minutes to ~72 seconds - a ~96% improvement in throughput.
           </>,
           <>
             Contributed to event-streaming infrastructure cleanup across 50+ Azure Event Hubs in four environments,
@@ -142,7 +142,7 @@ const about: About = {
       },
       {
         company: "Early-Stage Software Platform (Remote Internship)",
-        timeframe: "Aug 2024 – Nov 2024",
+        timeframe: "Aug 2024 - Nov 2024",
         role: "AI & Platform Engineering Intern",
         achievements: [
           <>
@@ -169,7 +169,7 @@ const about: About = {
         name: "Maharaja Agrasen Institute of Technology (MAIT)",
         description: (
           <>
-            B.Tech, Computer Science and Engineering — Expected 2027.
+            B.Tech, Computer Science and Engineering - Expected 2027.
             Affiliated with Guru Gobind Singh Indraprastha University (GGSIPU), Delhi, India.
           </>
         ),
@@ -271,14 +271,14 @@ const blog: Blog = {
 const work: Work = {
   path: "/work",
   label: "Work",
-  title: `Projects – ${person.name}`,
+  title: `Projects - ${person.name}`,
   description: `Cloud SRE and infrastructure engineering case studies by ${person.name}`,
 };
 
 const gallery: Gallery = {
   path: "/gallery",
   label: "Gallery",
-  title: `Gallery – ${person.name}`,
+  title: `Gallery - ${person.name}`,
   description: `A visual collection by ${person.name}`,
   images: [
     {

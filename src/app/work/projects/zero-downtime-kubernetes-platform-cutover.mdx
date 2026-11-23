@@ -1,9 +1,9 @@
 ---
-title: "Zero-Downtime Kubernetes Platform Cutover with GitOps and Terraform"
+title: "Zero-Downtime AKS Platform Migration via Flux GitOps"
 publishedAt: "2025-06-01"
-summary: "Contributed to a large-scale production Kubernetes platform cutover using declarative GitOps and Terraform, coordinating staged reconciliation steps to preserve service availability with zero downtime."
+summary: "Orchestrated a zero-downtime migration of a live, traffic-serving Azure Kubernetes Service (AKS) cluster sharing an Azure Resource Group using Flux v2 GitOps across 15,512 lines of code and 107 files."
 images:
-  - "/images/projects/project-01/cover-01.jpg"
+  - "/images/projects/zero-downtime-kubernetes-platform-cutover/pr-summary.png"
 team:
   - name: "Harjot Singh Makkar"
     role: "Cloud SRE"
@@ -11,44 +11,159 @@ team:
     linkedIn: "https://linkedin.com/in/harjotmakkar322"
 ---
 
-## Overview
+## Executive Summary
 
-Moving live production workloads and cluster state between Kubernetes environments carries significant risk — service disruption, configuration drift, broken dependencies, and inconsistent infrastructure state. This project involved contributing to a live production Kubernetes cluster cutover, working with AKS, FluxCD, GitOps, and Terraform across a large-scale infrastructure change.
+Migrating a live, traffic-serving Kubernetes platform is high-stakes engineering. Migrating one where both the legacy cluster and the target cluster share the **exact same Azure Resource Group** is walking a tightrope over live traffic: one wrong cloud-resource reconciliation or overly aggressive prune cycle, and the production environment is history.
 
-## Context and Constraints
+This case study breaks down how I engineered and executed a zero-downtime migration of an active Azure Kubernetes Service (AKS) cluster (`dev` to `devnew`) using Flux v2 GitOps, spanning:
+- **15,512 lines of declarative code** added
+- **107 files changed**
+- **46 commits** merged in a single coordinated transition
+- **Zero downtime** and zero dropped packets
 
-The environment operated production workloads requiring continuous availability. The cutover involved a large declarative infrastructure and GitOps change, requiring careful staged reconciliation to avoid configuration drift and dependency breakage.
+<Media
+  src="/images/projects/zero-downtime-kubernetes-platform-cutover/pr-summary.png"
+  alt="GitOps Cutover PR: 46 commits, 107 files changed, 15,512 additions"
+  enlarge
+  radius="m"
+/>
 
-## Challenge
+---
 
-Executing a production Kubernetes platform change without service interruption required:
-- Coordinating GitOps state reconciliation across multiple Flux controllers
-- Preserving workload availability during infrastructure state transfer
-- Validating cluster health at each stage before proceeding
-- Keeping infrastructure changes auditable and reversible
+## The Architecture Constraint: Shared Resource Group
 
-## Technical Approach
+In typical cloud migrations, teams spin up an entirely separate cloud network or resource group, creating complete infrastructure isolation. In this environment, legacy dependencies and enterprise subscription constraints required both the existing AKS cluster and the newly provisioned AKS cluster to live inside the **same Azure Resource Group**.
 
-- Worked with **AKS**, **FluxCD**, and **Terraform / OpenTofu** to manage cluster and workload state
-- Coordinated staged reconciliation steps, verifying health at each checkpoint
-- Used declarative GitOps configuration to maintain a reviewable and version-controlled change record
-- Applied environment-specific Terraform overlays to manage infrastructure boundaries cleanly
+### The Core Threat
+GitOps controllers like Flux reconcile desired state against actual cluster state continuously. If cloud-mutating controllers (such as `terraform-controller` or Azure service operators) were allowed to run freely on the new cluster, they could detect resources already managed by the legacy cluster, trigger drift corrections, or delete active cloud dependencies.
 
-## Reliability and Validation
+To prevent catastrophic collision, I established a strict **controller-first deployment runway** with blast-radius containment.
 
-- Monitored service health throughout the cutover using observability tooling
-- Used GitOps reconciliation status and pod-readiness signals to verify workload health before each step
-- Maintained rollback capability by keeping the prior infrastructure state intact until validation was complete
+---
 
-## Results
+## Phase 1: Parallel Environment Bootstrapping
 
-- Zero downtime during the cutover, with workloads migrated without service interruption
-- Large infrastructure and GitOps change successfully codified and reviewed through version-controlled workflows
+### 1. GitOps Repository Isolation
+The repository was organized into environment overlays under `clusters/<env>/`:
+```
+clusters/
+├── dev/             # Live legacy cluster config
+├── devnew/          # Target cluster staging config
+├── qa/
+├── uat/
+└── prod/
+```
+The new cluster (`devnew`) was bootstrapped against an isolated Git feature branch (`devnew`) to ensure no commits on the main trunk could inadvertently trigger reconciliation on the staging cluster.
 
-## Lessons Learned
+### 2. Controller-First, Config-Second Runway
+I authored modular Flux `Kustomization` manifests in `clusters/devnew/infrastructure.yaml` dividing workloads into two tiers:
+1. `infrastructure/controllers/<component>` (Custom Resource Definitions and operator controllers)
+2. `infrastructure/config/<component>` (Custom resources, storage classes, and configurations)
 
-Staged reconciliation — moving in small, verifiable increments rather than one large switch — is essential for safe production Kubernetes migrations. Having a clear rollback path at each stage reduces pressure and allows the team to pause and investigate rather than racing to fix forward.
+Dependencies were strictly enforced via `dependsOn` arrays:
+- **Core Platform Controllers**: `ingress-nginx`, `external-secrets`, `sealed-secrets`, `weave-gitops`, `datadog`, and `keda`.
+- **Data & Streaming Infrastructure**: `strimzi` (Kafka), `schema-registry`, `spark-operator`, `keycloak`, `airflow`, and `opensearch`.
+- **Reconciliation Controls**: Enforced `wait: true`, health check timeouts set to 5m, and `prune: true` for clean resource lifecycle management.
 
-## Technology Tags
+### 3. Deferring Cloud-Mutating Operators
+The `terraform-controller` was intentionally excluded during the bootstrap phase. This guaranteed that while both clusters ran side-by-side, the new cluster had zero capability to mutate Azure cloud resources (Blob storage accounts, networking, DNS, and IAM).
 
-AKS · Kubernetes · FluxCD · GitOps · Terraform · OpenTofu · Helm · Microservices · Infrastructure state management
+---
+
+## Phase 2: Bottlenecks & Root-Cause Engineering
+
+Building parallel infrastructure surfaces edge-case bugs that standard deployments miss. Here are the four critical bottlenecks I diagnosed and resolved:
+
+### 1. Cryptographic Key Mismatch in Secrets Bootstrapping
+- **Incident**: After encrypting the Azure service-principal secret using `kubeseal` and removing the plaintext credential, the `sealed-secrets` controller failed to decrypt it. The downstream `External Secrets Operator` starved, throwing `ClusterSecretStore: InvalidProviderConfig`.
+- **Root Cause**: The secret had been sealed with the public certificate belonging to the *legacy* cluster rather than the newly bootstrapped cluster's sealing key.
+- **Resolution**: Rather than restarting controllers or testing speculative fixes, I diagnosed the localized decryption failure from controller logs, recovered the underlying credentials, resealed them with the target cluster's public certificate, and restored automated secret synchronization across all namespaces.
+
+### 2. StorageClass Dependency Race Condition (Loki & Grafana)
+- **Incident**: The `grafana-config` reconciliation stalled because the Loki `HelmRelease` timed out waiting for its PersistentVolumeClaim (PVC) to bind.
+- **Root Cause**: The custom `StorageClass` required by Loki had not yet been applied at the cluster level when the Helm chart attempted to provision storage.
+- **Resolution**: Reordered the dependency chain to apply cluster-wide StorageClasses before instantiating workload HelmReleases, unblocking PVC binding and bringing the observability stack online.
+
+### 3. Corporate Proxy Constraints During Ingress Validation
+- **Incident**: Pre-cutover validation requests from the jump host directly to the new internal LoadBalancer IP returned `HTTP 403 Forbidden`.
+- **Root Cause**: Enterprise Zscaler proxy rules intercepted traffic addressed to internal cluster IPs by default.
+- **Resolution**: Bypassed proxy interception during internal endpoint verification using `--noproxy "*"` paired with explicit `Host` headers. This allowed end-to-end HTTP route validation through `ingress-nginx` prior to touching external DNS.
+
+### 4. The Azure Blob CSI "Attached: false" Paradox
+- **Incident**: Workloads backed by `blob.csi.azure.com` reported `Attached: false` on their `VolumeAttachment` objects, raising concerns that storage mounts were unstable.
+- **Root Cause**: Unlike block storage (Azure Disks) that attaches directly to a VM host and sets `Attached: true`, Azure Blob storage mounts via BlobFuse directly from the node DaemonSet over the network. It bypasses the Kubernetes `attach-detach-controller` by design.
+- **Verification**: Cross-referencing production cluster API states confirmed identical `Attached: false` states on healthy, running workloads.
+- **Outcome**: Prevented hours of speculative CSI driver debugging; storage mounts were confirmed stable across all pods.
+
+---
+
+## Phase 3: The "Double Padlock" Zero-Downtime Cut-Over
+
+The most dangerous moment of any GitOps migration is swapping folder identities (`devnew` to `dev`). If both clusters read from the same directory at the same time, split-brain reconciliation will occur.
+
+To make the transition blast-proof, I designed a **"Double Padlock" freeze strategy**:
+
+<Media
+  src="/images/projects/zero-downtime-kubernetes-platform-cutover/double-padlock.png"
+  alt="Double Padlock GitOps freeze configuration"
+  enlarge
+  radius="m"
+/>
+
+### Step 1: Freeze the Legacy Cluster
+I suspended both the `GitRepository` and `Kustomization` resources on the legacy cluster:
+```bash
+flux suspend kustomization flux-system
+flux suspend gitrepository flux-system
+```
+This ensured running workloads continued serving live traffic while completely ignoring any incoming Git commits.
+
+### Step 2: Apply the Second Padlock in Git
+In the cutover branch, I renamed `clusters/dev` to `clusters/dev-backup` and modified its `gotk-sync.yaml` to point to a non-existent Git branch (`decommissioned`):
+```yaml
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: flux-system
+  namespace: flux-system
+spec:
+  ref:
+    branch: decommissioned
+  interval: 1m0s
+  url: ssh://git@github.com/organization/infrastructure.git
+```
+Even if someone accidentally ran `flux resume` on the old cluster, it could never pull or apply live manifests.
+
+### Step 3: Suspend Target Cluster Pre-Merge
+I suspended `GitRepository` and `Kustomization` on `devnew` so it wouldn't throw a `path not found` error during the mid-merge directory rename.
+
+### Step 4: The Ultimate PR Merge & DNS Cutover
+1. Merged the 15,512-line Pull Request into `master`, cleanly renaming `clusters/devnew` to `clusters/dev` across all patches and overlays.
+2. Updated external DNS CNAME records to point incoming traffic from the legacy ingress IP to the new cluster's public LoadBalancer IP.
+
+### Step 5: In-Place Patch & Resume
+Patched the target cluster's `flux-system` Kustomization in-place to track `./clusters/dev`, then unsuspended reconciliation:
+```bash
+kubectl patch kustomization flux-system -n flux-system \
+  --type='json' -p='[{"op": "replace", "path": "/spec/path", "value": "./clusters/dev"}]'
+flux resume gitrepository flux-system
+flux resume kustomization flux-system
+```
+Flux immediately reconciled against the `master` branch. The new cluster took active ownership with zero configuration drift and zero dropped requests.
+
+---
+
+## Results & Impact
+
+- **Zero Downtime**: Active traffic transitioned seamlessly between clusters with 0 service interruption.
+- **Zero Shared-Resource Collisions**: Strict controller sequencing and deferred Terraform operators prevented any destructive mutation of the shared Azure Resource Group.
+- **Declarative Audit Trail**: 107 files and 15,512 lines of code reviewed, approved, and codified through version-controlled GitOps.
+- **Repeatable Runbook**: The staged "Double Padlock" workflow established a blueprint for subsequent cluster upgrades across `qa`, `uat`, and `prod`.
+
+---
+
+## Key Takeaways
+
+1. **Blast radius is determined by controller capabilities, not just code**: In shared cloud environments, deferring controllers that possess cloud-mutating permissions is the only foolproof safeguard against accidental destruction.
+2. **Understand CSI storage mechanics before debugging**: Network-mounted storage (BlobFuse) behaves fundamentally differently from block storage. Knowing that Kubernetes VolumeAttachments stay `Attached: false` saves hours of unnecessary troubleshooting.
+3. **Double-padlock legacy infrastructure during cutovers**: Never rely on a single suspension command. Pointing the legacy sync manifest to a non-existent Git branch guarantees that human error cannot trigger accidental re-reconciliation.
