@@ -19,7 +19,43 @@ type Metadata = {
   tag?: string;
   team: Team[];
   link?: string;
+  aspectRatio?: string;
 };
+
+export function getImageAspectRatio(imgPath: string): string | undefined {
+  if (!imgPath) return undefined;
+  try {
+    const cleanPath = imgPath.startsWith("/") ? imgPath.slice(1) : imgPath;
+    const fullPath = path.join(process.cwd(), "public", cleanPath);
+    if (!fs.existsSync(fullPath)) return undefined;
+    const buf = fs.readFileSync(fullPath);
+    if (buf.length < 24) return undefined;
+    // PNG
+    if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) {
+      const width = buf.readUInt32BE(16);
+      const height = buf.readUInt32BE(20);
+      if (width > 0 && height > 0) return `${width} / ${height}`;
+    }
+    // JPEG
+    if (buf[0] === 0xff && buf[1] === 0xd8) {
+      let offset = 2;
+      while (offset < buf.length) {
+        if (buf[offset] !== 0xff) break;
+        const marker = buf[offset + 1];
+        if (marker === 0xc0 || marker === 0xc2) {
+          const height = buf.readUInt16BE(offset + 5);
+          const width = buf.readUInt16BE(offset + 7);
+          if (width > 0 && height > 0) return `${width} / ${height}`;
+        }
+        const len = buf.readUInt16BE(offset + 2);
+        offset += 2 + len;
+      }
+    }
+  } catch {
+    // fallback
+  }
+  return undefined;
+}
 
 import { notFound } from "next/navigation";
 
@@ -39,6 +75,9 @@ function readMDXFile(filePath: string) {
   const rawContent = fs.readFileSync(filePath, "utf-8");
   const { data, content } = matter(rawContent);
 
+  const primaryImage = (data.images && data.images[0]) || data.image || "";
+  const autoAspectRatio = primaryImage ? getImageAspectRatio(primaryImage) : undefined;
+
   const metadata: Metadata = {
     title: data.title || "",
     subtitle: data.subtitle || "",
@@ -49,6 +88,7 @@ function readMDXFile(filePath: string) {
     tag: data.tag || [],
     team: data.team || [],
     link: data.link || "",
+    aspectRatio: data.aspectRatio || autoAspectRatio || "16 / 9",
   };
 
   return { metadata, content };
