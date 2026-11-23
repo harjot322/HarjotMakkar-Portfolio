@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { Fragment, useEffect, useState } from "react";
 
-import { Fade, Flex, Line, Row, ToggleButton, Button } from "@once-ui-system/core";
+import { Fade, Flex, Line, Row, ToggleButton } from "@once-ui-system/core";
 
 import { routes, display, person, about, blog, work, gallery } from "@/resources";
 import type { IconName } from "@/resources/icons";
@@ -47,6 +47,7 @@ const navItems: { href: keyof typeof routes; icon: IconName; label: string }[] =
   { href: "/about", icon: "person", label: about.label },
   { href: "/work", icon: "grid", label: work.label },
   { href: "/blog", icon: "book", label: blog.label },
+  { href: "/resume", icon: "document", label: "Résumé" },
   { href: "/gallery", icon: "gallery", label: gallery.label },
 ];
 
@@ -126,27 +127,6 @@ export const Header = () => {
                     </Fragment>
                   ),
               )}
-              <Line background="neutral-alpha-medium" vert maxHeight="24" />
-              {/* Resume button */}
-              <Row s={{ hide: true }}>
-                <Button
-                  href="/resume"
-                  prefixIcon="document"
-                  label="Résumé"
-                  size="s"
-                  weight="default"
-                  variant="secondary"
-                  data-border="rounded"
-                />
-              </Row>
-              <Row hide s={{ hide: false }}>
-                <ToggleButton
-                  prefixIcon="document"
-                  href="/resume"
-                  aria-label="Résumé"
-                  selected={pathname === "/resume"}
-                />
-              </Row>
               {display.themeSwitcher && (
                 <>
                   <Line background="neutral-alpha-medium" vert maxHeight="24" />
