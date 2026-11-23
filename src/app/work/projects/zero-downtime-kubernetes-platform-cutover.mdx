@@ -3,12 +3,14 @@ title: "Zero-Downtime AKS Platform Migration via Flux GitOps"
 publishedAt: "2025-06-01"
 summary: "Orchestrated a zero-downtime migration of a live, traffic-serving Azure Kubernetes Service (AKS) cluster sharing an Azure Resource Group using Flux v2 GitOps across 15,512 lines of code and 107 files."
 images:
-  - "/images/projects/zero-downtime-kubernetes-platform-cutover/pr-summary.png"
+  - "/images/projects/zero-downtime-kubernetes-platform-cutover/AKS_cutover_diagram.png"
+  - "/images/projects/zero-downtime-kubernetes-platform-cutover/pr-summary.jpeg"
 team:
   - name: "Harjot Singh Makkar"
     role: "Cloud SRE"
     avatar: "/images/harjot.jpg"
     linkedIn: "https://linkedin.com/in/harjotmakkar322"
+link: "https://lnkd.in/p/gVkQQsvm"
 ---
 
 ## Executive Summary
@@ -22,11 +24,13 @@ This case study breaks down how I engineered and executed a zero-downtime migrat
 - **Zero downtime** and zero dropped packets
 
 <Media
-  src="/images/projects/zero-downtime-kubernetes-platform-cutover/pr-summary.png"
+  src="/images/projects/zero-downtime-kubernetes-platform-cutover/pr-summary.jpeg"
   alt="GitOps Cutover PR: 46 commits, 107 files changed, 15,512 additions"
   enlarge
   radius="m"
 />
+
+> **Public Write-up**: Read the breakdown and engineering discussion of this migration on [LinkedIn](https://lnkd.in/p/gVkQQsvm).
 
 ---
 
@@ -38,6 +42,13 @@ In typical cloud migrations, teams spin up an entirely separate cloud network or
 GitOps controllers like Flux reconcile desired state against actual cluster state continuously. If cloud-mutating controllers (such as `terraform-controller` or Azure service operators) were allowed to run freely on the new cluster, they could detect resources already managed by the legacy cluster, trigger drift corrections, or delete active cloud dependencies.
 
 To prevent catastrophic collision, I established a strict **controller-first deployment runway** with blast-radius containment.
+
+<Media
+  src="/images/projects/zero-downtime-kubernetes-platform-cutover/AKS_cutover_diagram.png"
+  alt="AKS Zero-Downtime Migration Architecture and Runway"
+  enlarge
+  radius="m"
+/>
 
 ---
 
@@ -102,13 +113,6 @@ Building parallel infrastructure surfaces edge-case bugs that standard deploymen
 The most dangerous moment of any GitOps migration is swapping folder identities (`devnew` to `dev`). If both clusters read from the same directory at the same time, split-brain reconciliation will occur.
 
 To make the transition blast-proof, I designed a **"Double Padlock" freeze strategy**:
-
-<Media
-  src="/images/projects/zero-downtime-kubernetes-platform-cutover/double-padlock.png"
-  alt="Double Padlock GitOps freeze configuration"
-  enlarge
-  radius="m"
-/>
 
 ### Step 1: Freeze the Legacy Cluster
 I suspended both the `GitRepository` and `Kustomization` resources on the legacy cluster:
