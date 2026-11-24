@@ -8,6 +8,7 @@ const person: Person = {
   avatar: "/images/harjot.jpg",
   email: "harjotdesk@gmail.com",
   location: "Asia/Kolkata", // IANA time zone identifier
+  displayLocation: "New Delhi, India", // Display location for header and about page
   languages: ["English", "Hindi"], // optional: Leave the array empty if you don't want to display languages
   locale: "en", // BCP 47 language tag for the HTML lang attribute
 };

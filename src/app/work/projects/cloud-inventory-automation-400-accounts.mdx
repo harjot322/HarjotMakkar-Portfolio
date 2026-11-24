@@ -32,7 +32,14 @@ The resulting platform feeds an enterprise-grade **Grafana command center** and 
 
 Rather than building a naive distributed crawler that makes thousands of individual API calls against 400+ separate accounts, the system leverages native AWS aggregation paired with a decoupled Kubernetes processing pipeline.
 
-![Multi-Account AWS Inventory Ingestion Architecture](/images/projects/AWS400accounts/400awsaccounts.svg)
+<Media
+  src="/images/projects/AWS400accounts/400awsaccounts.svg"
+  alt="Multi-Account AWS Inventory Ingestion Architecture"
+  aspectRatio="2295.45 / 1446.18"
+  objectFit="contain"
+  enlarge
+  radius="m"
+/>
 
 ### Core Architectural Components
 
@@ -59,26 +66,24 @@ Rather than building a naive distributed crawler that makes thousands of individ
 
 A core requirement for this platform was strict adherence to zero-trust credential hygiene. No hardcoded passwords, long-lived AWS secret keys, or static tokens were permitted at any layer of the architecture.
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant K8s as Kubernetes CronJob
-    participant KIAM as KIAM DaemonSet
-    participant AWS as AWS STS / Config Aggregator
-    participant Vault as HashiCorp Vault CSI
-    participant Aurora as Amazon Aurora DB
+<Media
+  src="/images/projects/AWS400accounts/zero-trust-auth-flow.svg"
+  alt="Zero-Trust Pod Identity and Dynamic Database Credential Flow"
+  aspectRatio="2362.77 / 1049.41"
+  objectFit="contain"
+  enlarge
+  radius="m"
+/>
 
-    K8s->>KIAM: Request AWS Credentials (Pod Annotation)
-    KIAM->>AWS: AssumeRole (ConfigAggregatorReadOnly)
-    AWS-->>K8s: Temporary STS Credentials (1-hour lease)
-    K8s->>Vault: Mount CSI Volume (db-creds)
-    Vault->>Aurora: Generate Dynamic DB User & Password
-    Vault-->>K8s: Inject In-Memory DB Credentials
-    K8s->>AWS: Query SelectAggregateResourceConfig
-    AWS-->>K8s: Streamed Resource JSON
-    K8s->>Aurora: Bulk Upsert Normalized Inventory
-    Note over K8s,Aurora: Batch completes; STS & Vault leases expire automatically
-```
+### Ephemeral Authentication & Ingestion Flow
+1. **Pod Scheduling**: The Kubernetes CronJob pod starts at 04:00 UTC with an IAM role annotation (`iam.amazonaws.com/role`).
+2. **KIAM Pod Identity**: The node-level KIAM DaemonSet intercepts the metadata request and calls AWS STS to assume `ConfigAggregatorReadOnly`.
+3. **Short-Lived AWS STS Lease**: AWS STS returns temporary IAM credentials to the CronJob pod bounded by a 1-hour expiration window.
+4. **Vault CSI Volume Mount**: The CSI driver contacts HashiCorp Vault to dynamically generate a unique, short-lived PostgreSQL database role and password for Amazon Aurora.
+5. **In-Memory Credential Injection**: Vault CSI injects the temporary credentials into an in-memory `tmpfs` volume (`/vault/secrets/db-creds.json`) with zero disk writes.
+6. **Aggregated Inventory Extraction**: The CronJob streams inventory across all 400+ accounts via AWS Config `SelectAggregateResourceConfig`.
+7. **Relational Upsert**: The pod normalizes the payload and executes bulk upserts into Amazon Aurora.
+8. **Automated Teardown**: Upon batch completion, the pod terminates and both the AWS STS session and HashiCorp Vault database leases expire automatically.
 
 ### 1. Cross-Account Pod Identity via KIAM
 The ingestion CronJob pod runs with a dedicated KIAM role annotation:
@@ -239,22 +244,27 @@ Tracking 200,000+ resources daily generates approximately 6 million records per 
 
 When the ingestion engine completed its initial fleet-wide reconciliation across the 400+ AWS accounts, it exposed the true magnitude of the enterprise cloud surface area.
 
-![Enterprise Cloud Inventory Grafana Dashboard](/images/projects/AWS400accounts/400accounts-dashboard-view.jpeg)
+<Media
+  src="/images/projects/AWS400accounts/400accounts-dashboard-view.jpeg"
+  alt="Enterprise Cloud Inventory Grafana Dashboard"
+  aspectRatio="2048 / 1073"
+  objectFit="contain"
+  enlarge
+  radius="m"
+/>
 
 ### Fleet Telemetry at a Glance
 
-| Category | Resource Type | Active Count | Key Observation |
-| :--- | :--- | :--- | :--- |
-| **Compute & Serverless** | `AWS::EC2::Instance` | **3,168** | Spread across on-demand and spot fleets across 14 regions. |
-| **Containers** | `AWS::EKS::Cluster` | **50** | Production, staging, and sandboxed Kubernetes clusters. |
-| **Functions** | `AWS::Lambda::Function` | **40,600+** | Microservices, data pipelines, and event-driven automation. |
-| **Object Storage** | `AWS::S3::Bucket` | **9,059** | Evaluated daily for public-access block compliance. |
-| **Block Storage** | `AWS::EC2::Volume` | **13,444** | 17,930 historical records tracked across state transitions. |
-| **Relational Data** | `AWS::RDS::DBCluster` | **1,002** | Multi-AZ Aurora and standard RDS clusters. |
-| **Database Backups** | `AWS::RDS::DBClusterSnapshot`| **19,000+** | Staging and ad-hoc backup snapshots retained across accounts. |
-| **Identity & Access** | `AWS::IAM::Role` | **97,600+** | Service roles, cross-account trust roles, and CI/CD policies. |
-| **Monitoring & Alerting**| `AWS::CloudWatch::Alarm` | **73,700+** | Operational thresholds across the fleet. |
-| **Network Interfaces** | `AWS::EC2::NetworkInterface` | **32,900+** | Managed ENIs from Lambdas, ALBs, NAT Gateways, and pods. |
+- **Compute & Serverless (`AWS::EC2::Instance`)**: **3,168 active instances** spread across on-demand and spot fleets across 14 AWS regions.
+- **Containers (`AWS::EKS::Cluster`)**: **50 EKS clusters** spanning production, staging, and sandboxed developer environments.
+- **Functions (`AWS::Lambda::Function`)**: **40,600+ Lambda functions** powering microservices, data processing pipelines, and event-driven automation.
+- **Object Storage (`AWS::S3::Bucket`)**: **9,059 S3 buckets** evaluated continuously for encryption and public-access block compliance.
+- **Block Storage (`AWS::EC2::Volume`)**: **13,444 active EBS volumes** (with 17,930 historical records tracked across state transitions).
+- **Relational Data (`AWS::RDS::DBCluster`)**: **1,002 database clusters** including multi-AZ Aurora clusters and standard RDS instances.
+- **Database Backups (`AWS::RDS::DBClusterSnapshot`)**: **19,000+ snapshots** retained across accounts for disaster recovery and staging rollbacks.
+- **Identity & Access (`AWS::IAM::Role`)**: **97,600+ IAM roles** auditing service roles, cross-account trust configurations, and CI/CD policies.
+- **Monitoring & Alerting (`AWS::CloudWatch::Alarm`)**: **73,700+ alarms** enforcing operational and security thresholds across the fleet.
+- **Network Interfaces (`AWS::EC2::NetworkInterface`)**: **32,900+ managed ENIs** attached to Lambdas, Application Load Balancers, NAT Gateways, and pods.
 
 ---
 
@@ -264,22 +274,9 @@ While the dashboard gave engineering leadership instant situational awareness, i
 
 In a 400-account environment without automated enforcement, orphaned resources accumulate unnoticed:
 
-```
-+---------------------------------------------------------------------------------+
-|                       IDENTIFIED CLOUD WASTE CATEGORIES                         |
-+---------------------------------------------------------------------------------+
-|                                                                                 |
-|  [ 13,444 EBS Volumes ] ------> 1,200+ Unattached Volumes ("available" state)  |
-|                                 Immediate Monthly Waste: ~$18,000 - $24,000     |
-|                                                                                 |
-|  [ 19,000+ DB Snapshots ] ----> 6,500+ Orphaned Snapshots (>90 days old)        |
-|                                 Immediate Monthly Waste: ~$12,000 - $15,000     |
-|                                                                                 |
-|  [ 32,900+ ENIs & EIPs ] -----> 800+ Unattached Elastic IPs & Dead ENIs         |
-|                                 Direct IPv4 hourly charges & CIDR exhaustion    |
-|                                                                                 |
-+---------------------------------------------------------------------------------+
-```
+- **Unattached EBS Volumes (`13,444 Total`)**: **1,200+ unattached volumes** in `available` state following uncoordinated EC2 terminations (~$18,000 to $24,000 in monthly waste).
+- **Orphaned DB Snapshots (`19,000+ Total`)**: **6,500+ orphaned manual snapshots** older than 90 days lingering in staging accounts (~$12,000 to $15,000 in monthly waste).
+- **Idle Elastic IPs & Dangling ENIs (`32,900+ Total`)**: **800+ unattached Elastic IPs and orphaned ENIs** driving IPv4 hourly charges and CIDR exhaustion.
 
 1. **Unattached EBS Volumes**:
    - The query filtered volumes where `attachment.status` was null or `available`. Over 1,200 unattached EBS volumes (many provisioned as expensive `gp3` or `io1` with pre-allocated IOPS) were sitting idle following improper EC2 terminations.
@@ -313,14 +310,12 @@ A production case study is only credible when it honestly discusses architectura
 
 ## Tangible Business & Operational Outcomes
 
-| Metric | Before Automation | After Platform Rollout |
-| :--- | :--- | :--- |
-| **Data Collection Cadence** | Monthly / Ad-hoc manual sprints | **Daily automated snapshot (04:00 UTC)** |
-| **Time to Compile Fleet Report** | 3 to 5 business days | **Sub-second Grafana queries & API access** |
-| **Multi-Account Fleet Coverage**| Partial (~40-60 key accounts) | **100% complete coverage (400+ accounts)** |
-| **Credential Hygiene** | Static IAM keys on engineer laptops | **Zero static secrets (KIAM + Vault CSI)** |
-| **Recurring Engineering Overhead** | ~40-60 engineer-hours/month | **Reduced by >90% (Zero-touch automation)** |
-| **FinOps Waste Discovery** | Reactive, discovered during audit | **Proactive daily identification of zombie assets** |
+- **Data Collection Cadence**: Shifted from monthly ad-hoc manual sprints to a **daily automated snapshot (04:00 UTC)** before business hours.
+- **Time to Compile Fleet Report**: Cut from 3-5 business days of manual scripting down to **sub-second Grafana queries and internal API access**.
+- **Multi-Account Fleet Coverage**: Expanded from partial coverage (~40-60 key accounts) to **100% complete coverage across all 400+ accounts**.
+- **Credential Hygiene**: Eliminated static IAM access keys on engineer laptops in favor of **zero static secrets (KIAM + HashiCorp Vault CSI)**.
+- **Recurring Engineering Overhead**: Reclaimed ~40-60 engineer-hours/month, representing a **greater than 90% reduction** via zero-touch automation.
+- **FinOps Waste Discovery**: Shifted from reactive surprises during quarterly audits to **proactive daily identification of zombie assets**.
 
 ---
 

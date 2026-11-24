@@ -75,39 +75,66 @@ D. Case Study 3: Automating Cloud Inventory Across 400+ AWS Accounts
    - Visuals: `/images/projects/AWS400accounts/400awsaccounts.svg` (diagram),
      `/images/projects/AWS400accounts/400accounts-dashboard-view.jpeg` (live Grafana view).
 
+E. Case Study 4: Storage Workflow Batch Optimization (On-Prem NAS to Azure Blob)
+   - File: `src/app/work/projects/storage-workflow-batch-optimization.mdx`
+   - URL: http://localhost:3000/work/storage-workflow-batch-optimization
+   - Scope: Production migration of 126 TB and 1.6 Million files from legacy on-prem NAS to Azure Blob.
+   - Content: Diagnosing O(N) process fork & exec overhead, TCP/TLS handshake tax, double-execution
+     bug, subshell regex log chatter, and NAS controller lock saturation. Iterated through v1
+     (33m 08s baseline) -> v2 (~13m 15s bug fix) -> v3 (1m 12s / 72s batch manifest pipeline).
+     Pivoted to AzCopy v10 `--list-of-files` chunks with internal Go Goroutine concurrency,
+     HTTP/2 connection pooling, batch-boundary validation, and zero NAS lock churn (27.6x speedup,
+     99.29% step duration reduction).
+   - Visuals: `/images/projects/storage-optimization/storage-migration-azcopy-batch-pipeline.svg`
+     (custom architecture & pipeline comparison diagram).
+
+F. Case Study 5: ATS Certify - Modular Resume Engineering & AI Evaluation Architecture
+   - File: `src/app/work/projects/ats-certify-resume-engineering-platform.mdx`
+   - URL: http://localhost:3000/work/ats-certify-resume-engineering-platform
+   - Scope: Independent full-stack resume engineering and ATS evaluation platform (Next.js 14,
+     React 18, TypeScript, Zod, pdf-lib, docx, Python FastAPI with PyMuPDF/python-docx, Gemini API,
+     and local Ollama).
+   - Content: Dual-workflow architecture separating browser-local deterministic synthesis (zero server
+     compute/write amplification) from decoupled hybrid evaluation. Detailed 5 explicit architectural
+     trade-offs, full repository topology, rigorous architectural audit of prototype boundaries vs.
+     production failure modes, capacity planning mathematics for 1M DAU (200k scans/day, 46.3 peak scans/sec,
+     695 in-flight concurrency), 5-stage incremental production rollout, and 2027 product ecosystem roadmap
+     (trustless QR verification authority, Google X-Y-Z formula rewriting, and global credit economy).
+   - Visuals: `/images/projects/ats-certify/ats-certify-architecture.svg` (main hero architecture diagram),
+     `/images/projects/ats-certify/workflow.svg` (scan & scoring workflow pipeline),
+     `/images/projects/ats-certify/phases.svg` (5-stage incremental production rollout).
+
 --------------------------------------------------------------------------------
 3. WHAT IS CURRENTLY HAPPENING (ACTIVE STATE)
 --------------------------------------------------------------------------------
-- Case Studies 1, 2, and 3 are 100% written, type-checked, committed, and pushed.
-- The Git working tree is completely clean on branch `master`.
-- Remote repository is in sync at commit `c39bff1`.
+- ALL FIVE Case Studies (1, 2, 3, 4, and 5) are 100% written, type-checked, and sanitized.
+- Repaired Case Study #3 (`cloud-inventory-automation-400-accounts.mdx`):
+  - Removed unrendered `mermaid` / `sequenceDiagram` block and replaced with clean structured step sequence.
+  - Replaced ASCII waste categories box with clean structured metric callouts.
+  - Entire repository confirmed 100% clean of raw mermaid blocks, ASCII boxes, and pipe tables.
+- All diagrams and images across all 5 case studies are rendered unboxed, borderless, and seamless (matching the ATS Certify layout style):
+  - Hardcoded border="neutral-alpha-medium" removed from MDX image renderer in `src/components/mdx.tsx`.
+  - All diagrams use `<Media ... />` without border props and exact viewBox aspect ratios to eliminate letterbox bands:
+    - AKS Cutover: `/images/projects/zero-downtime-kubernetes-platform-cutover/AKS_cutover.svg` (`aspectRatio="1727.85 / 842.12"`)
+    - Envoy Gateway: `/images/projects/ingress-to-envoy-migration/Envoy.svg` (`aspectRatio="3541.55 / 1368.96"`)
+    - 400 AWS Accounts: `/images/projects/AWS400accounts/400awsaccounts.svg` (`aspectRatio="2295.45 / 1446.18"`), `/images/projects/AWS400accounts/zero-trust-auth-flow.svg` (`aspectRatio="2362.77 / 1049.41"`)
+    - Storage Optimization: `/images/projects/storage-optimization/storage-migration-azcopy-batch-pipeline.svg` (`aspectRatio="1800.63 / 753.37"`)
+    - ATS Certify: `/images/projects/ats-certify/ats-certify-architecture.svg` (`aspectRatio="3792.61 / 943.56"`), `workflow.svg` (`aspectRatio="1890.42 / 607.15"`), `phases.svg` (`aspectRatio="1152.61 / 770.35"`)
+- Zero elongated dashes across all newly created/modified files.
+- Zero client/employer proprietary names (strict NDA sanitization).
 - Dev server runs on port 3000.
 
 --------------------------------------------------------------------------------
-4. WHAT TO DO NEXT (WHEN THE USER RETURNS TOMORROW)
+4. WHAT TO DO NEXT
 --------------------------------------------------------------------------------
-STEP 1: Await user feedback on Case Study 3 (`cloud-inventory-automation-400-accounts.mdx`).
-        Apply any quick tweaks if requested.
+STEP 1: Await user feedback on Case Study #5 (`ats-certify-resume-engineering-platform.mdx`).
+        Apply any refinements or adjustments requested.
 
-STEP 2: Tackle Case Study #4:
-        - Target File: `src/app/work/projects/storage-workflow-batch-optimization.mdx`
-        - Subject: Storage migration / transfer pipeline optimization (benchmark
-          reduction from ~33 minutes down to ~72 seconds; ~96% throughput gain).
-        - Wait for the user to provide raw notes, architecture context, or diagram files.
-        - Rewrite with high technical depth (batching mechanics, validation, error handling,
-          concurrency, and data integrity).
-        - Ensure zero elongated dashes and strict NDA sanitization.
-
-STEP 3: Tackle Case Study #5:
-        - Target File: `src/app/work/projects/ats-certify-resume-engineering-platform.mdx`
-        - Subject: ATS Certify independent product platform.
-        - Polish architecture, ATS parsing pipeline, scoring algorithms, and product impact.
-
-STEP 4: Polish Additional Portfolio Elements (as requested by user):
+STEP 2: Polish Additional Portfolio Elements (as requested by user):
         - Decide whether to hide `/gallery` in `src/resources/once-ui.config.ts` if the
           user does not want template stock photos.
         - Add technical skill badges / micro-icons in `src/resources/content.tsx`.
         - Review blog posts in `src/app/blog/posts/` for formatting and dash cleanliness.
-        - Always run `npx tsc --noEmit` and check for elongated dashes before pushing.
+        - Run `npx tsc --noEmit` and check for elongated dashes before committing and pushing.
 
 ================================================================================
