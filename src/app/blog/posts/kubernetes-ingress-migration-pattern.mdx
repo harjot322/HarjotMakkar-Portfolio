@@ -17,18 +17,7 @@ By running both ingress controllers simultaneously within the same cluster and s
 
 ## The 3-Stage Migration Architecture
 
-The core rule of ingress migration is straightforward: **never couple controller installation with traffic cutover**. Separate provisioning, route translation, and traffic shifting into distinct operational phases.
-
-```
-Ingress Migration Runway:
-  Stage 1: Standby Coexistence ──► Deploy Envoy Gateway; 100% traffic stays on NGINX
-                                            │
-                                            ▼
-  Stage 2: Weighted Canary Split ─► 90% NGINX / 10% Envoy (Validate headers & latency)
-                                            │
-                                            ▼
-  Stage 3: Full Cutover ──────────► 100% Envoy Gateway; cleanly drain & remove NGINX
-```
+The core rule of ingress migration is straightforward: **never couple controller installation with traffic cutover**. Separate provisioning, route translation, and traffic shifting into distinct operational phases:
 
 ### Stage 1: Parallel Coexistence (Standby Deployment)
 Install Envoy Gateway into a dedicated namespace (`envoy-gateway-system`) while leaving your existing `ingress-nginx` controller and all `Ingress` resources completely untouched.

@@ -40,23 +40,6 @@ To bridge the gap between "backup taken" and "system recoverable", backup verifi
 
 We designed the **Automated Restore Probe**: an asynchronous verification pipeline that runs on a 15-minute offset after every daily snapshot.
 
-```
-Disaster Recovery Verification Loop:
-  1. Daily Snapshot (02:00 ET) ────► Blobs Persisted to Cloud Storage
-                                            │
-                                            ▼ (15-min offset trigger)
-  2. Restore Probe CronJob (02:15 ET) ───► Spins Up Ephemeral Container
-                                            │
-                                            ▼
-  3. Probe Index Restore ────────────────► Restores Test Index to Isolated Sandbox
-                                            │
-                                            ▼
-  4. Integrity Assertion ────────────────► Validates Lucene Segment CRCs & Doc Count
-                                            │
-                                            ▼
-  5. Audit & Cleanup ────────────────────► Emits Heartbeat & Drops Temp Probe Index
-```
-
 ### The 4 Verification Gates Every Restore Probe Must Enforce:
 
 1. **Snapshot Repository Health Assertion**:
