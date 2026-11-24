@@ -28,6 +28,8 @@ That's it. None of that tells you:
 
 OpenSearch snapshot completion status tells you the job finished. It doesn't verify that every shard was included, that the snapshot repository is in a healthy state, or that a restore from that snapshot would succeed.
 
+> **Deep-Dive Case Study**: For the complete architectural design, FluxCD GitOps manifests, and production incident postmortem of this exact system, read the full engineering case study: [Automated OpenSearch Backup & Restore-Probe Verification Pipeline](/work/opensearch-automated-backup-verification-pipeline).
+
 We extended the backup workflow to include an explicit verification step - a separate process that:
 1. Listed recent snapshots and checked their reported state
 2. Verified the snapshot repository metadata was consistent

@@ -1,54 +1,233 @@
 ---
-title: "ATS Certify: Building a Résumé Engineering and Validation Platform"
+title: "ATS Certify: Modular Resume Engineering & AI Evaluation Architecture"
 publishedAt: "2025-01-01"
-summary: "Building ATS Certify - an independent résumé engineering platform that helps job seekers create clean, ATS-friendly résumés through structured parsing, deterministic validation checks, and targeted AI-assisted semantic feedback."
+summary: "Architected an end-to-end resume engineering and ATS evaluation platform featuring a zero-backend client-side vector builder (pdf-lib / docx) and a decoupled hybrid evaluation engine (Next.js 14, Python FastAPI with PyMuPDF, and pluggable Gemini/Ollama scoring adapters), backed by a 5-stage distributed roadmap to scale to 1 million users."
 images:
-  - "/images/projects/project-01/cover-01.jpg"
+  - "/images/projects/ats-certify/ats-certify-architecture.svg"
 team:
   - name: "Harjot Singh Makkar"
-    role: "Founder & Engineer"
+    role: "Solo Full-Stack & Systems Architect"
     avatar: "/images/harjot.jpg"
     linkedIn: "https://linkedin.com/in/harjotmakkar322"
 link: "https://atscertify.com"
 ---
 
-## Overview
+## Executive Summary & Architectural Thesis
 
-Most résumé tools optimize for visual design rather than parser compatibility. ATS Certify is an independent software product focused on the opposite problem: helping job seekers create clean, structured, ATS-readable résumés and validating their documents against a comprehensive set of structured checks.
+Consumer resume checkers suffer from a structural product flaw: most are thin LLM wrappers designed to flatter users with non-deterministic, inflated scores. They fail to model how enterprise Applicant Tracking Systems (such as Workday, Taleo, and Greenhouse) actually parse document trees, penalize layout anti-patterns, and filter candidates.
 
-## Product Concept
+ATS Certify was architected around two core engineering principles:
 
-ATS Certify focuses on:
-- **Parser-friendly structure**: Single-column layouts, avoiding tables, decorative icons, and complex formatting that may interfere with ATS parsing
-- **Content import and extraction**: Users can import an existing résumé, extract and structure its content
-- **Structured validation**: 30+ planned validation checks covering layout, formatting, completeness, and consistency
-- **Actionable feedback**: Clear suggestions rather than generic scores
-- **Clean output**: Generate a validated, ATS-optimized résumé
+1. **Deterministic Document Engineering**: Resume authoring, sanitization, schema validation, and binary export (PDF and DOCX) execute entirely in the browser with zero server round-trips, guaranteeing strict structural compliance before a file ever reaches an employer.
+2. **Modular Hybrid Evaluation**: Document text extraction and AI evaluation are decoupled across language boundaries, combining a standalone Python FastAPI parsing service (PyMuPDF and python-docx) with a pluggable TypeScript `AIScoringAdapter` layer (Gemini and Ollama) that enforces server-side deduction math over structured model outputs.
 
-## Technical Approach
+Currently implemented as an end-to-end functional prototype with a working local scan and builder pipeline, the platform is being engineered toward a mid-to-late 2027 production launch featuring zero-retention privacy guarantees, UUID-backed public credential verification, a pay-per-action credit economy, and an asynchronous worker architecture designed to scale to 1 million users.
 
-- **Deterministic custom parsing logic** as the foundation - not an LLM guess about structure
-- A structured **validation pipeline** that applies specific checks in sequence
-- A **results dashboard** presenting actionable feedback per check
-- **Gemini API endpoints** for semantic text analysis of content quality
-- A deliberate boundary between semantic analysis (AI-assisted) and deterministic application state, request routing, and core validation logic
+---
 
-## Engineering Philosophy Behind the Product
+## System Architecture
 
-The core insight is that résumé validation has two distinct problem types:
-1. **Deterministic checks** (is the section present? is the formatting clean? are dates consistent?) - these should never be delegated to an LLM
-2. **Semantic quality checks** (is this bullet result-oriented? does the summary match the experience?) - targeted AI assistance adds value here
+The following diagram details the dual-workflow topology of the platform, the language boundaries separating document synthesis from evaluation, and the 5-stage distributed scaling roadmap:
 
-Mixing these arbitrarily produces inconsistent, untrustworthy validation. Keeping them separate produces a reliable product.
+<Media
+  src="/images/projects/ats-certify/ats-certify-architecture.svg"
+  alt="ATS Certify Modular System Architecture"
+  aspectRatio="3792.61 / 943.56"
+  objectFit="contain"
+  enlarge
+  radius="m"
+/>
 
-## Status
+---
 
-ATS Certify is an independent product in active development. Features listed above represent the product direction; the specific live feature set should be verified at [atscertify.com](https://atscertify.com).
+## 1. Trade-Off Analysis: Why Specific Architectural Decisions Were Made
 
-## Lessons Learned
+Every architectural boundary reflects an explicit systems-engineering trade-off balancing latency, operational cost, testability, and horizontal scalability:
 
-Building a solo SaaS product teaches a different kind of engineering discipline than infrastructure work. Product decisions, architecture trade-offs, and delivery timelines all land on one person. The engineering challenge of drawing the right boundary between deterministic logic and AI assistance has been the most interesting design decision so far.
+### Decision 1: Decoupling Browser-Local Builder from Server-Side Drafting
+- **Choice**: Build `/app/builder` as a 100% client-side workflow (`localStorage` + `pdf-lib` + `docx`) rather than persisting drafts on a backend database during editing.
+- **Trade-Off**: Resume editing involves high-frequency keystrokes, section reordering, and instant layout previews. Keeping state in React backed by debounced `localStorage` writes (`atscertify.resume`) eliminates network latency, avoids database write amplification during drafting, reduces server compute costs for binary PDF/DOCX generation to zero, and provides total user privacy upfront.
+
+### Decision 2: Isolating Document Parsing in a Python FastAPI Microservice
+- **Choice**: Offload PDF and DOCX text extraction from Node.js into a standalone Python FastAPI service (`POST /parse` in `src/services/parser/main.py`) instead of using pure-JavaScript PDF libraries inside Next.js API routes.
+- **Trade-Off**: Python's PyMuPDF (backed by C-level MuPDF bindings) and `python-docx` offer significantly faster, higher-fidelity text-layer extraction than Node.js alternatives. Just as importantly, isolating parsing behind an HTTP boundary separates CPU- and memory-intensive binary processing from the I/O-bound Next.js web tier so both can scale independently under load.
+
+### Decision 3: Pluggable AIScoringAdapter Factory (Gemini + Local Ollama)
+- **Choice**: Wrap LLM evaluation behind a strict `AIScoringAdapter` TypeScript interface and `AIEngineFactory` supporting both Google Gemini and a local Ollama endpoint (`AI_ENGINE=ollama`).
+- **Trade-Off**: Hard-coding a single cloud LLM vendor creates rate-limit fragility and makes local integration testing expensive. The adapter seam allows zero-cost offline testing against local `llama3` instances while enabling sequential model fallback (`gemini-2.0-flash` -> `latest` -> `lite`) in cloud environments when upstream 429 (Rate Limit) or 503 (Overloaded) responses occur.
+
+### Decision 4: Server-Enforced Deduction Math Over Raw LLM Scoring
+- **Choice**: Instead of trusting a generative model to output an arbitrary 0-100 match score directly, the Gemini adapter instructs the model to emit itemized deductions in `scoreCalculationLog` and computes `matchPercentage` deterministically in TypeScript.
+- **Trade-Off**: LLMs are unreliable at arithmetic and prone to score inflation. Anchoring the final score to explicit, auditable penalty items forces every point deduction to correspond to a concrete structural, keyword, or quantification flaw:
+```typescript
+// Enforced deterministically on the server in TypeScript
+const totalDeductions = scoreCalculationLog.reduce(
+  (sum, item) => sum + Math.abs(item.deduction),
+  0
+);
+const matchPercentage = Math.max(0, 100 - totalDeductions);
+```
+
+### Decision 5: Ephemeral Stateless Handoff (sessionStorage) in Prototype Phase
+- **Choice**: Pass the `ScoringResult` JSON payload from `/scan` to `/results` via browser `sessionStorage` (`ats_certify_result`) rather than introducing a database in Phase 1.
+- **Trade-Off**: Validates the complete ingestion, parsing, scoring, and Recharts telemetry visualization loop with zero persistent storage of user PII and zero database infrastructure overhead while rapidly iterating on the UI and scoring rubric.
+
+---
+
+## 2. System Design: Current Prototype Architecture
+
+### Repository Topology
+
+```text
+app/
+  (marketing)/       # Route group: landing page, /how-we-validate, /privacy, /terms
+  api/scan/          # Next.js POST endpoint orchestrating FastAPI parsing and AI scoring
+  app/               # App entry (/app), /app/builder, and /app/builder/preview
+  results/           # Client-rendered scan-results telemetry dashboard
+  scan/              # Client-side resume upload and scan flow
+  layout.tsx         # Shared metadata, fonts, theme provider, header/footer
+components/
+  motion/            # Framer Motion reveal and animation helpers
+  resume/            # Single-column ResumePreview component (ats-classic)
+  site/              # Navigation, footer, privacy banner, testimonials
+  ui/                # Reusable buttons, inputs, cards, and UI primitives
+src/
+  lib/ai/            # AIScoringAdapter contract, AIEngineFactory, Gemini & Ollama adapters
+  lib/resume/        # Zod Resume schema, localStorage store, templates, PDF/DOCX export
+  services/parser/   # FastAPI document extraction service and pytest suite
+.github/workflows/   # Frontend and Python-parser CI pipelines
+```
+
+### Workflow A: Browser-Local Resume Engineering (/app/builder)
+
+1. **Single-Source-of-Truth Schema (`src/lib/resume/schema.ts`)**: The `Resume` TypeScript type is inferred directly via `z.infer` from a Zod schema modeling contact details, professional summary, grouped skills, work experience, projects, education, certifications, and template metadata.
+2. **Debounced Persistence (`src/lib/resume/store.ts`)**: On mount, `loadResume()` hydrates state from `localStorage` (`atscertify.resume`); subsequent keystrokes trigger debounced `saveResume()` writes.
+3. **Sanitization & Validation Gate**: Before rendering `/app/builder/preview` or exporting binaries, `sanitizeResume()` trims whitespace, strips leading non-alphanumeric bullet characters, and prunes empty entries, while `validateResume()` enforces summary character bounds, section/bullet caps, email/URL formats, and month/year date patterns.
+4. **Vector Binary Synthesis**: `ResumePreview` renders the single-column `ats-classic` template, while `exportPdf.ts` (`pdf-lib`) and `exportDocx.ts` (`docx`) generate clean, machine-readable vector files directly in browser memory.
+
+### Workflow B: Synchronous Resume Scan & Telemetry (/scan -> /results)
+
+<Media
+  src="/images/projects/ats-certify/workflow.svg"
+  alt="ATS Certify Synchronous Resume Scan and Evaluation Pipeline"
+  aspectRatio="1890.42 / 607.15"
+  objectFit="contain"
+  enlarge
+  radius="m"
+/>
+
+- **Diagnostic Telemetry Surface (`/results`)**: Renders high-signal hiring metrics including Auto-Rejection Risk level, Reliability Score gauge, Certification Medal tier, Executive Summary, Impact Score, Years of Experience, Lexical Depth, Volumetric Density, Fluff-vs-Fact ratio, Recharts keyword bar charts and radar benchmarks, Strategic Directives, Technical Alerts, and Missing Keywords.
+- **Client-Side Artifact Export & Storage Resiliency**: Integrates `html-to-image` to export the full diagnostic dashboard as a downloadable PNG report, while wrapping `sessionStorage` and `localStorage` calls in defensive `try/catch` blocks to intercept `DOMException` errors in hardened browsers without triggering a React crash.
+
+### Local Multi-Service Execution Workflow
+
+```bash
+# Terminal 1: Start the Python FastAPI document parser
+cd src/services/parser
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+
+# Terminal 2: Start the Next.js 14 web application (Gemini adapter)
+GEMINI_API_KEY=your-key npm run dev
+```
+
+---
+
+## 3. Architectural Audit: Prototype Boundaries vs. Production Bottlenecks
+
+To treat this case study with genuine systems-engineering rigor, it is critical to separate what works in the current prototype from the bottlenecks that would fail under production traffic:
+
+### Request Lifecycle
+- **Current Prototype Behavior**: Synchronous `POST /api/scan` (`maxDuration = 300`) blocks while uploading, parsing, and waiting on LLM inference.
+- **Production Failure Mode**: Ties up serverless/web connections during slow model responses; any transient client network drop loses in-flight work.
+- **Production Solution**: Shift to non-blocking asynchronous job submission (`202 Accepted` returning a `jobId`), queue-based execution, and Server-Sent Events (SSE) status updates.
+
+### Service Discovery & Networking
+- **Current Prototype Behavior**: FastAPI URL is hard-coded to `http://127.0.0.1:8000/parse` in `app/api/scan/route.ts` (and Ollama to `127.0.0.1:11434`).
+- **Production Failure Mode**: Loopback addressing assumes co-located local processes and fails completely across isolated container hosts or Kubernetes pods.
+- **Production Solution**: Externalize endpoints into validated environment variables with DNS-based service discovery and explicit `AbortController` timeouts.
+
+### State & Persistence
+- **Current Prototype Behavior**: `localStorage` (`atscertify.resume`) and `sessionStorage` (`ats_certify_result`) only; zero database infrastructure.
+- **Production Failure Mode**: Reports cannot be shared across devices, expire when sessions clear, and large payloads risk browser storage quota exhaustion.
+- **Production Solution**: Introduce authenticated tenant-scoped storage in MongoDB Atlas acting as an immutable Results Ledger with zero raw resume text retained.
+
+### AI Output Boundary Validation
+- **Current Prototype Behavior**: `JSON.parse` checked against compile-time TypeScript `ScoringResult`; total provider failure returns a synthetic zero-score object.
+- **Production Failure Mode**: Malformed LLM JSON fields are not caught by a runtime schema validator, and provider outages can render in the UI as completed 0% scores.
+- **Production Solution**: Enforce a runtime Zod `safeParse` boundary on model output before returning, and replace synthetic zero-score fallbacks with explicit `completed`, `partial`, and `failed` job states.
+
+### Document Extraction Boundaries
+- **Current Prototype Behavior**: Reads entire upload into memory; PDF extracts selectable text (no OCR) and DOCX reads paragraphs (skipping tables and headers).
+- **Production Failure Mode**: Unbounded uploads risk container memory exhaustion; scanned image PDFs yield empty text, and table-formatted DOCX resumes lose entire sections.
+- **Production Solution**: Enforce multi-layer upload byte caps, magic-byte file-signature verification, selective OCR fallback (PyMuPDF + Tesseract/RapidOCR), and full XML traversal of DOCX tables.
+
+### Routing & Test Harness Alignment
+- **Current Prototype Behavior**: `/results` CTA linked to `/builder` instead of `/app/builder`; `npm test` invoked `node --test` on TypeScript files using `@/` path aliases.
+- **Production Failure Mode**: Route mismatch causes 404 navigation errors from the results CTA; Node test runner requires a TypeScript/alias loader in CI.
+- **Production Solution**: Align internal routing contracts and configure standard module alias resolution in the CI test harness.
+
+---
+
+## 4. Scaling Blueprint: From 1 User to 1 Million Users
+
+Scaling ATS Certify from a single-user local prototype to 1 million users requires modeling capacity around **active scan arrival rates and queue concurrency** rather than headline user counts:
+
+```text
+scans/day          = daily_active_users * scans_per_active_user_per_day
+avg_scans/sec      = scans/day / 86,400
+peak_scans/sec     = avg_scans/sec * peak_factor
+in_flight_scans    = arrival_rate * avg_scan_duration
+```
+
+### Capacity Planning Model (1,000,000 Daily Active Users)
+- **Daily Scan Volume**: Assuming 1,000,000 DAU averaging 0.2 scans/day = **200,000 scans/day**.
+- **Average Arrival Rate**: 200,000 / 86,400 = **~2.31 scans/second**.
+- **Peak Arrival Rate**: Under a 20x job-season or viral surge factor = **~46.3 scans/second**.
+- **Concurrent In-Flight Scans**: If an unoptimized synchronous scan requires 15 seconds end-to-end:
+  `in_flight_scans = 46.3 * 15 ≈ ~695 concurrent in-flight scans`
+  This concurrency level would immediately exhaust serverless HTTP connection pools and trigger aggressive upstream LLM rate-limit rejections (HTTP 429).
+
+### Five-Stage Incremental Production Rollout
+
+<Media
+  src="/images/projects/ats-certify/phases.svg"
+  alt="ATS Certify 5-Stage Incremental Production Rollout"
+  aspectRatio="1152.61 / 770.35"
+  objectFit="contain"
+  enlarge
+  radius="m"
+/>
+
+---
+
+## 5. Future Scopes & Product Ecosystem Roadmap (Target: Mid-to-Late 2027)
+
+Ahead of the planned mid-to-late 2027 production launch, ATS Certify is scoped to evolve across four major pillars:
+
+### 1. Zero-Retention "Trustless" Certification Authority (/verify & QR Provenance)
+- **Privacy-First Results Ledger**: Raw resume binaries and extracted text remain strictly ephemeral, processed in memory and purged immediately after evaluation. A serverless MongoDB Atlas cluster acts exclusively as a Results Ledger, storing `User`, `Wallet`, and `Certificate` documents indexed on `userId`, `email`, and `createdAt` with zero raw resume text retained.
+- **Verifiable UUID Credentials**: Qualifying scans mint an unguessable UUID (`certificate_id`) and embed a verification QR code (`qrcode.react`) into exported reports, allowing recruiters to verify score authenticity via the public `atscertify.com/verify?id=[UUID]` portal.
+
+### 2. Closed-Loop AI Master Builder (/app/builder Vault)
+- **Automated X-Y-Z Remediation**: Instead of leaving candidates to manually fix flagged weaknesses, the Phase 3 AI Master Builder will ingest the diagnostic penalty log from `/results` and rewrite weak bullets using the Google X-Y-Z achievement formula:
+  > *"Accomplished [X] as measured by [Y], by doing [Z]"*
+  The engine then automatically exports a newly validated, 100% ATS-parseable PDF or DOCX file.
+
+### 3. Passwordless Identity & Global Credit Economy (MoR + PPP)
+- **Zero-Friction Authentication**: Passwordless Email OTP authentication powered by NextAuth.js and Resend.
+- **Pay-Per-Action Credit Wallet**: Replaces high-friction monthly subscriptions with an internal credit wallet backed by a Merchant of Record (Lemon Squeezy) to handle global VAT/tax compliance and localized Purchasing Power Parity (PPP) pricing across three tiers:
+  - **Teaser Scan (Free)**: Executes the scan pipeline with blurred granular diagnostics to prove value upfront.
+  - **Full Neural Scan**: Unlocks complete structural penalty logs, keyword gaps, and radar benchmarks.
+  - **AI Master Builder**: Generates an X-Y-Z rewritten, ATS-verified PDF/DOCX resume.
+
+### 4. Extraction Fidelity Upgrades & Ecosystem Extensions
+- **Hybrid OCR & Complex DOCX Traversal**: Upgrade `src/services/parser/main.py` with selective OCR fallback (PyMuPDF + Tesseract/RapidOCR) for image-based PDFs and full XML traversal of DOCX tables, headers, and footers.
+- **Job Description Scraper & Browser Extension**: Automated JD ingestion for role-specific skill-gap analysis, a browser extension for one-click job-board matching, and an Admin Command Center tracking scan latencies, token costs, and ledger telemetry.
+
+---
 
 ## Technology Tags
 
-SaaS · Résumé tooling · Gemini API · Semantic analysis · Deterministic validation · React · Node.js · Backend architecture
+Next.js 14 · Python FastAPI · PyMuPDF · Google Gemini API · Ollama · TypeScript · Zod · pdf-lib · python-docx · Recharts · Framer Motion · System Design · SRE

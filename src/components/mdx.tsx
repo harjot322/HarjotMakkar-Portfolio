@@ -70,7 +70,6 @@ function createImage({ alt, src, ...props }: MediaProps & { src: string }) {
       marginBottom="16"
       enlarge
       radius="m"
-      border="neutral-alpha-medium"
       sizes="(max-width: 960px) 100vw, 960px"
       alt={alt}
       src={src}
@@ -79,7 +78,19 @@ function createImage({ alt, src, ...props }: MediaProps & { src: string }) {
   );
 }
 
-function slugify(str: string): string {
+function getTextContent(node: React.ReactNode): string {
+  if (typeof node === "string") return node;
+  if (typeof node === "number") return String(node);
+  if (!node) return "";
+  if (Array.isArray(node)) return node.map(getTextContent).join("");
+  if (React.isValidElement(node) && (node.props as { children?: React.ReactNode })?.children) {
+    return getTextContent((node.props as { children?: React.ReactNode }).children);
+  }
+  return "";
+}
+
+function slugify(node: React.ReactNode): string {
+  const str = getTextContent(node);
   const strWithAnd = str.replace(/&/g, " and "); // Replace & with 'and'
   return transliterate(strWithAnd, {
     lowercase: true,
@@ -92,7 +103,7 @@ function createHeading(as: "h1" | "h2" | "h3" | "h4" | "h5" | "h6") {
     children,
     ...props
   }: Omit<React.ComponentProps<typeof HeadingLink>, "as" | "id">) => {
-    const slug = slugify(children as string);
+    const slug = slugify(children);
     return (
       <HeadingLink marginTop="24" marginBottom="12" as={as} id={slug} {...props}>
         {children}
