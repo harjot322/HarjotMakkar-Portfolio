@@ -7,7 +7,13 @@ import { person } from "@/resources";
 interface PostProps {
   post: {
     slug: string;
-    metadata: { title: string; publishedAt: string; image?: string; tag?: string };
+    metadata: {
+      title: string;
+      publishedAt: string;
+      image?: string;
+      tag?: string;
+      aspectRatio?: string;
+    };
   };
   thumbnail: boolean;
   direction?: "row" | "column";
@@ -32,12 +38,12 @@ export default function Post({ post, thumbnail, direction }: PostProps) {
         <Media
           priority
           sizes="(max-width: 768px) 100vw, 640px"
-          border="neutral-alpha-weak"
           cursor="interactive"
           radius="l"
           src={post.metadata.image}
           alt={"Thumbnail of " + post.metadata.title}
-          aspectRatio="16 / 9"
+          aspectRatio={post.metadata.aspectRatio || "16 / 9"}
+          objectFit="contain"
         />
       )}
       <Row fillWidth>

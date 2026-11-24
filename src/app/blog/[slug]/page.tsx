@@ -83,7 +83,7 @@ export default async function Blog({ params }: { params: Promise<{ slug: string 
     <Row fillWidth>
       <Row maxWidth={12} m={{ hide: true }} />
       <Row fillWidth horizontal="center">
-        <Column as="section" maxWidth="m" horizontal="center" gap="l" paddingTop="24">
+        <Column as="section" fillWidth maxWidth="m" horizontal="center" gap="l" paddingTop="24">
           <Schema
             as="blogPosting"
             baseURL={baseURL}
@@ -131,12 +131,14 @@ export default async function Blog({ params }: { params: Promise<{ slug: string 
           </Row>
           {post.metadata.image && (
             <Media
+              fillWidth
               src={post.metadata.image}
               alt={post.metadata.title}
-              aspectRatio="16/9"
+              aspectRatio={post.metadata.aspectRatio || "16 / 9"}
+              objectFit="contain"
+              enlarge
               priority
               sizes="(min-width: 768px) 100vw, 768px"
-              border="neutral-alpha-weak"
               radius="l"
               marginTop="12"
               marginBottom="8"
@@ -150,10 +152,10 @@ export default async function Blog({ params }: { params: Promise<{ slug: string 
 
           <Column fillWidth gap="40" horizontal="center" marginTop="40">
             <Line maxWidth="40" />
-            <Text as="h2" id="recent-posts" variant="heading-strong-xl" marginBottom="24">
-              Recent posts
+            <Text as="h2" id="recommended-posts" variant="heading-strong-xl" marginBottom="24">
+              Recommended reading
             </Text>
-            <Posts exclude={[post.slug]} range={[1, 2]} columns="2" thumbnail direction="column" />
+            <Posts suggestedFor={post.slug} limit={2} columns="2" thumbnail direction="column" />
           </Column>
           <ScrollToHash />
         </Column>

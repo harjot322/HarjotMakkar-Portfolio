@@ -130,6 +130,8 @@ export default async function Project({
       </Row>
       {post.metadata.images.length > 0 && (
         <Media
+          fillWidth
+          enlarge
           priority
           aspectRatio={post.metadata.aspectRatio || "16 / 9"}
           objectFit="contain"
@@ -146,7 +148,7 @@ export default async function Project({
         <Heading as="h2" variant="heading-strong-xl" marginBottom="24">
           Related projects
         </Heading>
-        <Projects exclude={[post.slug]} range={[2]} />
+        <Projects suggestedFor={post.slug} limit={2} />
       </Column>
       <ScrollToHash />
     </Column>

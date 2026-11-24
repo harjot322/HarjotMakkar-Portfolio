@@ -1,0 +1,218 @@
+---
+title: "Diagnosing Production OpenSearch Ingestion Bottlenecks with PerfTop & GitOps"
+publishedAt: "2025-07-15"
+summary: "How we enabled OpenSearch Performance Analyzer across dedicated cluster roles using FluxCD, troubleshot cluster-wide agent peering failures, and proved our ingestion pipeline bottleneck was upstream batching."
+image: "/images/blog/perftopdashboard.png"
+---
+
+> **Note on Telemetry Visuals**: The terminal telemetry screenshots included below are representative reference captures configured to match the exact PerfTop metrics, node layouts, and thread pool graphs observed during this incident. Proprietary cluster hostnames, internal indices, and production data have been redacted in accordance with enterprise security policy. All diagnostic timelines, commands, and architectural findings are 100% authentic.
+
+## The Ingestion Crisis: "Why Is Our Sync Taking Four Days?"
+
+During a high-priority data migration into our production OpenSearch cluster, the engineering team hit a wall. A sync pipeline responsible for ingesting historical data was crawling, and progress tracking dashboards estimated the migration would take roughly **four days** to complete.
+
+In the team's incident channel, questions started circulating:
+- *Can we turn up the concurrency without getting rate-limited by OpenSearch?*
+- *Is the cluster throttling us or putting our worker pods in jail?*
+- *Why is CPU utilization barely registering on our cloud monitoring charts?*
+
+When an ingestion pipeline crawls, developers almost universally blame the database: they assume indexing queues are saturated, write threads are exhausted, or disk I/O has maxed out. But making architectural changes based on assumptions in production is dangerous. We needed granular, sub-second telemetry to see what OpenSearch's internal thread pools and memory subsystems were actually doing.
+
+Here is how we rolled out OpenSearch Performance Analyzer and its terminal dashboard (**PerfTop**) via FluxCD GitOps, debugged a multi-role peering failure, and proved conclusively that the bottleneck was not OpenSearch at all.
+
+## Phase 1: High-Signal Telemetry Design with PerfTop
+
+Standard container metrics (such as average CPU and memory usage reported by Prometheus or cloud monitoring agents) smooth out crucial spikes over 1-minute or 5-minute sampling intervals. They cannot reveal millisecond-level JVM garbage collection pauses, bulk thread queue depths, or shard-level lock contention.
+
+To get true real-time visibility, we turned to **OpenSearch Performance Analyzer** and **PerfTop**. Performance Analyzer runs as an out-of-band Java agent on each node, exposing deep performance metrics via port `9600` and clustering telemetry across nodes via peering port `9650`. PerfTop is a lightweight terminal dashboard that consumes this API to render live cluster heatmaps:
+
+<Media
+  src="/images/blog/perftopdashboard.png"
+  alt="OpenSearch PerfTop terminal dashboard displaying cluster-wide thread pools, bulk indexing latency, and node health"
+  aspectRatio="16 / 9"
+  objectFit="contain"
+  enlarge
+  priority
+  radius="m"
+  marginTop="16"
+  marginBottom="16"
+/>
+
+### Key Ingestion Signals Monitored:
+- **`ThreadPool_Bulk_Queue` & `ThreadPool_Bulk_Rejection`**: If the cluster was genuinely overloaded, write queues would fill up and bulk rejections would spike above zero, returning HTTP 429 status codes.
+- **`Bulk_Latency` & `Bulk_Item_Rate`**: The average time spent processing a single batch and the number of documents indexed per second.
+- **`JVM_GC_Collection_Time` & `Heap_Alloc_Rate`**: Telemetry confirming that Lucene memory pressure was stable and young/old generation GC was not freezing worker threads.
+- **`Disk_Write_Rate` & `Direct_Memory_Usage`**: Proving whether the underlying storage volumes were saturated.
+
+### The Initial Diagnosis: Flatline at Zero Rejections
+When we connected PerfTop to the cluster during the active sync, the telemetry revealed something unexpected:
+- Bulk thread pool rejections were **flat at 0**.
+- Bulk queue depths were **consistently 0**.
+- Bulk processing latency was lightning fast: **12 to 16 milliseconds**.
+- The cluster was receiving micro-batches of just **4 to 18 documents** per HTTP request.
+
+OpenSearch was not throttling the pipeline. In fact, OpenSearch was sitting idle between requests, digesting tiny handfuls of documents in milliseconds and waiting for work. The throttling was happening upstream: the client application was executing thousands of sequential, un-batched database reads, getting rate-limited by its own source API before payloads could even reach OpenSearch.
+
+We provided immediate feedback to the ingestion engineers: *Batch records in memory into 5MB to 10MB payloads before sending `_bulk` requests to OpenSearch. The cluster is waiting on you.*
+
+However, to monitor the entire multi-node topology continuously across testing and live environments, we had to promote Performance Analyzer cleanly into our GitOps deployment pipeline.
+
+## Phase 2: Promoting Performance Analyzer to Production via GitOps
+
+In our QA environment, Performance Analyzer had already been deployed using a FluxCD Kustomize overlay. However, promoting this configuration to our Production cluster presented significant architectural constraints.
+
+### The Production Cluster Topology
+Our production OpenSearch architecture enforces strict high-availability controls:
+- **Dedicated Node Roles**: Distinct Kubernetes StatefulSets for dedicated `master` nodes (odd-numbered quorum of 3), `data` nodes, `ingest` nodes, and `coordinating` nodes.
+- **Topology Spread & Anti-Affinity**: Strict pod anti-affinity rules preventing any two nodes sharing the same role from landing on the same Kubernetes worker host.
+- **Active Snapshot Automation**: Production pods already had custom volume mounts and container `postStart` lifecycle hooks dedicated to injecting Azure Blob Storage SAS credentials for daily snapshot backups.
+
+```
+Production OpenSearch GitOps Architecture:
+  ├── Dedicated Master StatefulSet (3 Nodes, Quorum Only)
+  ├── Dedicated Ingest StatefulSet (Pipeline Processors)
+  ├── Dedicated Data StatefulSet (Persistent NVMe Storage)
+  └── Dedicated Coordinating StatefulSet (Client REST & Routing)
+```
+
+### The Merge Strategy: Zero-Risk Append-Only Overlays
+In Kubernetes, if a Kustomize patch redefines an object's `volumeMounts` or `lifecycle` block without care, it can overwrite existing arrays. Blindly applying the QA overlay would have wiped out the production `postStart` backup credential script, silently breaking disaster recovery snapshots!
+
+We rejected complex YAML anchors and instead executed an append-only strategy:
+1. **Append Volumes**: Appended a memory-backed RAM disk (`emptyDir: medium: Memory`) and agent data storage to the pod spec without altering snapshot credential secrets.
+2. **Append Lifecycle Commands**: Appended the Performance Analyzer agent startup command (`nohup /usr/share/opensearch/pa/bin/performance-analyzer-agent-cli &`) to the tail of the existing snapshot script.
+3. **NetworkPolicy Patch**: Created an isolated post-renderer patch block opening ports `9600` (metrics) and `9650` (cluster peering) across all OpenSearch pod selectors.
+
+```yaml
+# Append-only volume mount for Performance Analyzer
+volumeMounts:
+  - name: pa-data
+    mountPath: /dev/shm/performanceanalyzer
+volumes:
+  - name: pa-data
+    emptyDir:
+      medium: Memory
+      sizeLimit: 128Mi
+```
+
+## Phase 3: Troubleshooting Production Peering Failures
+
+After FluxCD rolled out the changes, we ran `kubectl exec` into a coordinating pod and launched PerfTop. The terminal dashboard initialized, but every metric row displayed `local` instead of the cluster node names. The agent was collecting local stats, but cluster-wide peering had completely failed.
+
+<Media
+  src="/images/blog/perftop.png"
+  alt="OpenSearch PerfTop terminal view showing single node local state during the peering troubleshooting phase"
+  aspectRatio="16 / 9"
+  objectFit="contain"
+  enlarge
+  radius="m"
+  marginTop="16"
+  marginBottom="16"
+/>
+
+We followed a systematic diagnostic runbook to isolate the root cause:
+
+### Step 1: Verify Network Policies
+Did the Kubernetes NetworkPolicy permit intra-cluster traffic on port 9650?
+We verified with `kubectl exec` and `nc -zvw3`:
+```bash
+nc -zvw3 opensearch-data-0.opensearch-headless 9650
+# Connection to opensearch-data-0 port 9650 [tcp/*] succeeded!
+```
+Network connectivity was completely healthy.
+
+### Step 2: Inspect Agent Logs
+Next, we inspected `/usr/share/opensearch/logs/performance-analyzer.log` on the coordinating pod:
+```
+ERROR [AgentMain] org.opensearch.performanceanalyzer.PerformanceAnalyzerApp:
+java.io.FileNotFoundException: /dev/shm/performanceanalyzer/config/plugin-stats-metadata (No such file or directory)
+  at java.io.FileOutputStream.open0(Native Method)
+  at java.io.FileOutputStream.open(FileOutputStream.java:293)
+```
+The agent was crashing continuously because its metadata and configuration directory was missing.
+
+### Step 3: Check Cluster Plugin API Status
+We queried the OpenSearch REST API to check the plugin status:
+```bash
+curl -s -X GET "http://localhost:9200/_plugins/_performanceanalyzer/config" | jq .
+```
+Response:
+```json
+{
+  "performanceAnalyzerEnabled": false,
+  "rcaEnabled": false,
+  "loggingEnabled": false
+}
+```
+The plugin was administratively disabled because the underlying agent could not initialize its data structures.
+
+### Eliminating Hypotheses to Find the Root Cause
+- **Hypothesis A (Failed Shell Expansion)**: We initially suspected that non-login shell execution in the `postStart` hook failed to expand brace syntax when creating configuration directories (`mkdir -p /dev/shm/performanceanalyzer/{config,metrics}`). We exec'd into the container to test this: the parent directory `/dev/shm/performanceanalyzer` did not exist at all.
+- **The True Root Cause**: When comparing the live Pod spec against our Kustomize overlay, we discovered a subtle configuration gap. The `pa-data` volume was attached at the Pod level across all roles, but the container-level `volumeMounts` entry had only been added to the `master` role StatefulSet!
+- It had been missed on the `data`, `ingest`, and `coordinating` roles. Because OpenSearch runs under a non-root UID (`1000`), the container process lacked permissions to create directories directly in root-owned paths unless mounted via Kubernetes `emptyDir`.
+
+### The Remediation
+We patched the Kustomize overlay to include the `volumeMounts` entry across all four node roles, enabled the plugin via the REST API, and executed a rolling restart:
+
+```bash
+curl -s -X POST "http://localhost:9200/_plugins/_performanceanalyzer/config" \
+  -H "Content-Type: application/json" \
+  -d '{"performanceAnalyzerEnabled": true, "rcaEnabled": true}'
+```
+
+Within 30 seconds, the agent logs settled, and PerfTop lit up with full cluster-wide node peering.
+
+## Phase 4: Production Telemetry & Team Alignment
+
+With cluster telemetry reporting reliably across every node, we ran a second inspection while the development team re-ran their ingestion jobs.
+
+### What the Live Numbers Proved:
+- **Batch Size**: 34 to 105 documents per bulk request (roughly 120KB per payload).
+- **Execution Latency**: 21 to 33 milliseconds per batch.
+- **Thread Pool Bulk Rejections**: Exactly 0.
+- **Disk Utilization**: Less than 4% write bandwidth.
+- **JVM Old Gen Evictions**: Zero.
+
+### Resolving Team Confusion
+Despite the telemetry showing clean operation, developers were confused by the visual charts. In team chat, someone asked:
+> *"Why does the CPU graph look completely flat? Does 'small payloads' mean we are sending too many requests too fast, or sending small requests with idle gaps in between?"*
+
+We broke down the physics of OpenSearch ingestion for the team:
+1. **The Overhead Tax**: Every HTTP request incurs TCP handshakes, TLS decryption, HTTP header parsing, JSON deserialization, and cluster state routing.
+2. **Idle Gaps vs. Saturation**: When you send a 50-document payload, OpenSearch processes it in 20ms and then sits completely idle for 200ms while your client script fetches the next batch. The CPU graph looks empty because the cluster is spending 90% of its time waiting for the client.
+3. **The Solution**: By aggregating records in memory into **5MB bulk batches (1,500 to 3,000 documents)**, the network overhead is paid once per several thousand records. The cluster's Lucene segment writers can stay continuously warm, utilizing multi-core indexing threads rather than idling.
+
+Once the team updated their ingestion client to build multi-megabyte payloads, cluster throughput increased by over **8x**, and the migration finished in hours instead of days, without a single thread pool rejection.
+
+## Protecting the Foundation: An Infrastructure as Code State Lesson
+
+Shortly after resolving the ingestion bottleneck, a related pull request arrived modifying the cloud storage backend that hosts our OpenSearch snapshot repository. The PR proposed renaming an internal Terraform resource identifier from an underscore to a hyphen (e.g., `resource "azurerm_storage_account" "p12_backup"` to `"p12-backup"`).
+
+During review, we flagged a critical operational risk that highlights the importance of thorough SRE code review:
+
+### 1. HCL Style Convention
+While hyphens are valid in cloud resource names, HashiCorp's Terraform HCL style guide dictates that internal configuration labels should strictly use **underscores** (`p12_backup`).
+
+### 2. The State Destruction Trap
+More critically, renaming an internal resource address changes its key in the Terraform state file. If applied without an explicit `moved {}` block:
+- Terraform treats `"p12_backup"` as deleted and `"p12-backup"` as a brand new resource.
+- The plan will output: `Plan: 1 to add, 1 to destroy`.
+- Terraform would attempt to **destroy the production storage account** holding all OpenSearch disaster recovery snapshots before recreating an empty one!
+
+```hcl
+# The mandatory moved block preventing production storage destruction
+moved {
+  from = azurerm_storage_account.p12_backup
+  to   = azurerm_storage_account.p12_backup_v2
+}
+```
+
+Catching this in PR review protected our production backup repository from accidental deletion and reinforced the rule that state-modifying refactors must always be verified with `terraform plan` before merging.
+
+## Summary of Engineering Takeaways
+
+- **Never diagnose database bottlenecks without sub-second telemetry**: High-level CPU graphs smooth out critical peaks. Tools like OpenSearch Performance Analyzer and PerfTop give you definitive proof of queue depths and thread pool rejections.
+- **Thread pool rejections at zero means the bottleneck is upstream**: If rejection counters are zero and latency is under 30ms, OpenSearch is waiting on your client. Do not tune cluster resources when client-side batching is the real issue.
+- **Pay the batching tax, not the HTTP tax**: Indexing thousands of micro-batches wastes cluster cycles on JSON parsing and routing. Target 5MB to 10MB bulk payloads for optimal Lucene write throughput.
+- **Append, never overwrite, in GitOps overlays**: When adding monitoring agents or sidecars to production Kubernetes clusters, use append-only arrays for volumes and lifecycle hooks so you never clobber existing credentials or backup routines.
+- **Always check Terraform state implications**: Renaming a Terraform resource block without a `moved {}` declaration will trigger a destroy-and-recreate cycle. Always verify state addresses before approving IaC PRs.

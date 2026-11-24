@@ -1,77 +1,108 @@
 ---
-title: "Kubernetes Ingress Migration: How to Move Traffic Without Dropping Requests"
+title: "Kubernetes Ingress Migration: Moving to Envoy Gateway Without Dropping Requests"
 publishedAt: "2025-04-10"
-summary: "Replacing an ingress controller in a live Kubernetes cluster is risky if done as a hard cutover. Here's a pattern for migrating traffic safely using parallel routing and incremental validation."
-image: "/images/projects/project-01/cover-02.jpg"
+summary: "Replacing an ingress controller in a live Kubernetes cluster is high-risk if executed as a hard cutover. Here is an architectural pattern for migrating traffic safely using parallel routing, Gateway API, and weighted canary validation."
+image: "/images/blog/ingress-traffic-migration-flow.svg"
 ---
 
-## The Problem With Hard Cutovers
+## The Hard Cutover Fallacy
 
-Replacing a Kubernetes ingress controller by deleting the old one and creating the new one is the fastest approach, and also the most likely to cause an outage. Even a brief period where neither controller is handling traffic results in dropped requests and frustrated users.
+Replacing an ingress controller by deleting the old deployment and creating the new one is the fastest approach, and the most guaranteed to cause a production outage. Even a momentary gap where DNS resolves to an unready controller or un-warmed TCP proxy drops in-flight transactions and generates spikes of HTTP 502 and 504 errors.
 
-When migrating from Nginx Ingress to Envoy Gateway, the safer approach is parallel routing: running both controllers simultaneously while incrementally shifting traffic, then validating behavior before decommissioning the old controller.
+When migrating production traffic from legacy `ingress-nginx` to **Envoy Gateway** (implementing the Kubernetes Gateway API), the only safe path is a staged **parallel routing pattern**.
 
-## Why Parallel Routing Works
+By running both ingress controllers simultaneously within the same cluster and shifting traffic incrementally via DNS weights or route-level splits, you maintain full rollback capability at every step of the migration.
 
-The core insight is simple: you don't have to choose between old and new. During a migration window, you can:
-1. Deploy the new controller alongside the existing one
-2. Define replacement routes on the new controller
-3. Validate that the new routes handle traffic correctly
-4. Shift traffic incrementally (or all at once if validation passes)
-5. Decommission the old controller only after traffic validation is complete
+> **Deep-Dive Case Study**: For the complete production migration from ingress-nginx to Envoy Gateway v1.7.0 with FluxCD GitOps, Gatekeeper policy debugging, and zero dropped requests, read [Zero-Downtime Migration from ingress-nginx to Envoy Gateway v1.7.0](/work/kubernetes-ingress-envoy-gateway-migration).
 
-This approach maintains a rollback path at every stage. If the new routes behave unexpectedly, you haven't yet removed the old ones.
+## The 3-Stage Migration Architecture
 
-## The Migration Pattern in Practice
+The core rule of ingress migration is straightforward: **never couple controller installation with traffic cutover**. Separate provisioning, route translation, and traffic shifting into distinct operational phases:
 
-### Step 1: Deploy the new controller without traffic
+### Stage 1: Parallel Coexistence (Standby Deployment)
+Install Envoy Gateway into a dedicated namespace (`envoy-gateway-system`) while leaving your existing `ingress-nginx` controller and all `Ingress` resources completely untouched.
 
-Install Envoy Gateway (or your replacement ingress controller) into the cluster without changing any existing Ingress resources. At this point, the new controller exists but serves no traffic.
+At this stage:
+- The `GatewayClass` (`eg`) and `Gateway` objects are instantiated.
+- The cloud provider provisions a separate external LoadBalancer IP for Envoy.
+- **Zero production traffic** reaches Envoy Gateway.
+- Platform engineers validate Envoy's internal readiness by issuing curl requests directly to the new LoadBalancer IP with explicit `Host` headers.
 
-```bash
-helm install envoy-gateway oci://docker.io/envoyproxy/gateway-helm \
-  --version v1.2.0 \
-  -n envoy-gateway-system \
-  --create-namespace
+### Stage 2: Translating Annotations to Gateway API (`HTTPRoute`)
+Legacy NGINX ingress configurations rely heavily on proprietary annotations (`nginx.ingress.kubernetes.io/*`). These do not translate automatically to Envoy Gateway.
+
+Instead, we map legacy routes into standard Kubernetes Gateway API `HTTPRoute` resources:
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: payment-api
+  namespace: payments
+spec:
+  parentRefs:
+    - name: eg-gateway
+      namespace: envoy-gateway-system
+  hostnames:
+    - "api.enterprise.internal"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /v2/payments
+      backendRefs:
+        - name: payment-service
+          port: 8080
+          weight: 100
 ```
 
-### Step 2: Create a GatewayClass and Gateway
+### The Critical Edge Case: 512k Header Buffers
+During canary testing, enterprise workloads frequently encounter an unexpected barrier: **HTTP 431 (Request Header Fields Too Large)**.
 
-Define the new gateway infrastructure and verify it reaches the Ready state before creating any routes.
+In enterprise environments with SSO, Kerberos tokens, or corporate proxy headers, request headers often exceed Envoy's default 60KB limit. While NGINX used `large-client-header-buffers`, Envoy Gateway requires tuning Envoy's internal `max_request_headers_kb`.
 
-### Step 3: Create mirror routes on the new controller
+Because the Gateway API specification does not expose low-level Envoy connection settings directly, we leveraged an `EnvoyPatchPolicy` JSONPatch escape hatch:
 
-For each existing Ingress route, create an equivalent HTTPRoute on the new Gateway. At this point, traffic still flows through Nginx Ingress. The new routes exist but have no external traffic.
+```yaml
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyPatchPolicy
+metadata:
+  name: enable-large-header-buffers
+  namespace: envoy-gateway-system
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: eg-gateway
+  type: JSONPatch
+  jsonPatches:
+    - type: "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+      op: add
+      path: "/max_request_headers_kb"
+      value: 512
+```
 
-### Step 4: Validate route behavior
+Validating this patch during the 10% canary window ensured that large authentication headers processed smoothly before migrating the remaining 90% of traffic.
 
-Test the new routes directly - bypassing DNS - to verify they handle requests correctly, including edge cases like path rewrites, header rules, and backend service routing.
-
-### Step 5: Shift DNS to the new controller
-
-Update DNS records (or update the LoadBalancer service selector) to point to the Envoy Gateway Load Balancer. Monitor request success rates throughout.
-
-### Step 6: Decommission the old controller
-
-Only after traffic validation confirms zero dropped requests should you remove the old Nginx Ingress resources and uninstall the old controller.
+### Stage 3: Weighted DNS Shift & Safe Decommissioning
+Once the canary route demonstrates parity:
+1. Update DNS records (or your external global load balancer) using weighted routing:
+   - Shift 10% of traffic to Envoy's LoadBalancer IP.
+   - Monitor error rates (502/503/504), p99 latency, and TLS handshake metrics.
+   - Incrementally increase the weight: 25%, 50%, and finally 100%.
+2. Once 100% of traffic resolves to Envoy Gateway, allow existing connections on `ingress-nginx` to drain naturally over a 24-hour observation window.
+3. Remove legacy `Ingress` resources and uninstall the NGINX controller Helm chart via GitOps.
 
 ## What to Monitor During Migration
 
-- **Request success rate**: HTTP 2xx/3xx responses as a percentage of total requests
-- **Error rate**: HTTP 4xx/5xx responses, particularly 502/503/504 which indicate routing failures
-- **Latency distribution**: Confirm p50/p95/p99 latency is consistent with pre-migration baselines
-- **Backend health**: Verify backend pods are receiving requests and responding correctly
+To ensure zero dropped requests, configure continuous telemetry on four key metrics:
+- **Downstream 5xx Error Spikes**: Real-time alerts on any non-zero rate of 502 Bad Gateway or 504 Gateway Timeout responses.
+- **Latency Distribution Shifts**: Comparing p95 and p99 response times between NGINX and Envoy data planes.
+- **TLS Handshake Failures**: Confirming that SNI negotiation and certificate chains match client expectations.
+- **Upstream Connection Churn**: Verifying that Envoy connection pooling maintains stable keep-alive connections to backend pods.
 
-## Common Issues to Watch For
+## Summary of Architectural Lessons
 
-**TLS termination differences**: Nginx Ingress and Envoy Gateway handle TLS configuration differently. Validate certificate handling before shifting live traffic.
-
-**Annotation compatibility**: Nginx-specific annotations (`nginx.ingress.kubernetes.io/*`) have no equivalent on Envoy Gateway. Translate these to HTTPRoute filter rules before switching.
-
-**Header modification rules**: Verify that any header addition/removal rules are correctly replicated in the new route configuration.
-
-## The Zero-Drop Result
-
-The goal is a migration where monitoring shows no increase in error rate and no dropped requests throughout the transition. This is achievable with parallel routing and careful validation - but only if you define success criteria before starting and monitor them actively during the cutover.
-
-A hard cutover trades safety for speed. Parallel routing trades a slightly longer migration window for a verifiable result.
+- **A hard cutover trades safety for speed**: Parallel routing takes longer to plan, but it guarantees a deterministic, zero-downtime cutover with instant rollback capability.
+- **Never rely on automatic annotation translation**: Gateway API filters differ fundamentally from NGINX annotations. Map routes explicitly and test edge cases (header limits, CORS, path rewrites) before routing traffic.
+- **Master the escape hatch**: Standard Gateway API resources cover 90% of routing needs. For enterprise tuning (such as 512k header buffer sizes), tools like `EnvoyPatchPolicy` provide the necessary low-level control without abandoning declarative GitOps.

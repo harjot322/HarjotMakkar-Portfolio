@@ -1,0 +1,194 @@
+---
+title: "Shift-Left Security: Orchestrating Wiz IaC & Container Scans with GitHub Composite Actions"
+publishedAt: "2025-06-10"
+summary: "How we decoupled security scanning into modular GitHub composite actions, integrated BeyondTrust Vault dynamic runtime secrets, and enforced automated quality gates across Dev, QA, UAT, and Production."
+image: "/images/blog/wiz-pipeline-scan-architecture.svg"
+---
+
+## The Problem with Fragmented Security Tooling
+
+Security scans in enterprise CI/CD pipelines often suffer from two major anti-patterns:
+- **Repetitive, copy-pasted workflow boilerplate**: Each microservice repository maintains its own custom curl commands, CLI installations, and scanner configurations. When an API changes, scanner arguments are updated, or a new compliance rule is mandated, dozens of repositories must be updated individually.
+- **Static, high-privilege credentials**: Teams frequently store scanner client IDs and tokens directly in repository secrets. With dozens of services, managing rotation and auditing exposure becomes an administrative bottleneck.
+
+In an environment managing mission-critical microservices across regulated Kubernetes clusters, security cannot be an afterthought handled manually before a release. We needed automated shift-left security that acts as an integrated gate in every developer pull request, while ensuring credentials remain centralized, dynamic, and strictly scoped.
+
+Here is how we designed and implemented a centralized scanning architecture using GitHub Composite Actions, BeyondTrust Vault dynamic runtime injection, and tiered environment gating with Wiz.
+
+## Architectural Hub: The Centralized `pipeline-actions` Repository
+
+Rather than having each application repository independently configure security scanners, we established a single, centralized repository named `pipeline-actions`. This repository hosts reusable GitHub Composite Actions versioned via Git tags and releases.
+
+```
+Enterprise Git Organization
+  ├── pipeline-actions (Centralized Reusable Actions)
+  │     ├── .github/actions/wiz-iac-scan/action.yml
+  │     ├── .github/actions/wiz-container-scan/action.yml
+  │     ├── .github/actions/java-build/action.yml
+  │     ├── .github/actions/code-coverage/action.yml
+  │     ├── .github/actions/coverity-sast/action.yml
+  │     └── .github/actions/blackduck-sca/action.yml
+  │
+  ├── microservice-payment-api (.github/workflows/ci.yml)
+  ├── microservice-account-svc (.github/workflows/ci.yml)
+  └── microservice-auth-broker (.github/workflows/ci.yml)
+```
+
+Within `pipeline-actions`, we authored two dedicated composite actions for Wiz:
+- **`wiz-iac-scan`**: Scans the workspace directory, Dockerfiles, Kubernetes manifests, Helm templates, and Terraform definitions before any build artifacts are produced.
+- **`wiz-container-scan`**: Scans the compiled container image artifact, as well as any referenced upstream base images and sidecars, prior to container registry push and deployment.
+
+Each microservice simply invokes these actions in its workflow file:
+
+```yaml
+jobs:
+  security-and-build:
+    runs-on: [self-hosted, linux-x64]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Fetch Dynamic Pipeline Secrets
+        id: vault-secrets
+        uses: ./.github/actions/fetch-vault-secrets
+        with:
+          run_as_user: ${{ secrets.RUN_AS_USER }}
+          vault_api_url: ${{ secrets.VAULT_API_URL }}
+
+      - name: Run Wiz IaC & Directory Scan
+        uses: enterprise-org/pipeline-actions/.github/actions/wiz-iac-scan@v2
+        with:
+          wiz_client_id: ${{ env.WIZ_CLIENT_ID }}
+          wiz_client_secret: ${{ env.WIZ_CLIENT_SECRET }}
+          environment: ${{ env.DEPLOY_ENV }}
+          scan_path: "."
+```
+
+## Zero Static Secrets: Dynamic BeyondTrust Vault Injection
+
+One of our non-negotiable security mandates was eliminating static scanner credentials from individual repository secrets. Storing `WIZ_CLIENT_ID` and `WIZ_CLIENT_SECRET` across 50+ repositories introduces significant credential sprawl and makes credential rotation nearly impossible.
+
+Instead, every repository is provisioned with exactly two bootstrap credentials:
+- `RUN_AS_USER`: The service identity authorized to request secrets.
+- `VAULT_API_URL`: The internal REST endpoint for BeyondTrust Vault.
+
+At the beginning of each pipeline execution, an authentication step contacts the BeyondTrust Vault API. It verifies the repository context and runner identity, retrieves the active Wiz service account credentials, and exports them as transient environment variables in the runner process:
+
+```bash
+# Handshake with BeyondTrust Vault API
+VAULT_RESPONSE=$(curl -s -X POST "${VAULT_API_URL}/api/v1/auth/request" \
+  -H "Content-Type: application/json" \
+  -d "{\"run_as_user\": \"${RUN_AS_USER}\", \"scope\": \"pipeline-scanners\"}")
+
+# Extract scanner credentials strictly into memory
+export WIZ_CLIENT_ID=$(echo "${VAULT_RESPONSE}" | jq -r '.secrets.WIZ_CLIENT_ID')
+export WIZ_CLIENT_SECRET=$(echo "${VAULT_RESPONSE}" | jq -r '.secrets.WIZ_CLIENT_SECRET')
+```
+
+Because these variables exist solely within the ephemeral runner process, they are never checked into Git, never stored in repository settings, and are automatically purged when the runner workspace tears down.
+
+## Pre-Build Gate: IaC and Directory Scans
+
+The first security boundary executes before compiling any application source code. The `wiz-iac-scan` composite action performs two essential inspections:
+
+### 1. Secret Detection in the Working Directory
+Detects accidentally committed API keys, private certificates, hardcoded database connection strings, and credential tokens within the source code or configuration files.
+
+### 2. Infrastructure as Code (IaC) Misconfiguration Analysis
+Evaluates Helm values files, Kubernetes manifests, and Terraform files against CIS benchmarks and cloud security best practices. The scanner inspects for:
+- Containers running with `privileged: true` or root UID.
+- Containers lacking CPU/memory resource limits.
+- Kubernetes services exposing node ports directly without an Ingress controller.
+- Open network security group ingress rules (`0.0.0.0/0`).
+
+Catching these misconfigurations in the pre-build phase gives engineers immediate feedback within their pull request before any binary artifact is compiled or packaged.
+
+## Post-Build Gate: Container Artifact and Base Image Scanning
+
+Once the application passes unit tests and compiles (packaged via Helm and Docker), the `wiz-container-scan` composite action executes.
+
+Many teams only scan the final image tag produced by their build. However, vulnerabilities frequently stem from upstream base layers (such as a base Linux runtime or an unpatched JVM base image) or sidecar utilities referenced in the Dockerfile.
+
+We configured the composite action to perform a two-tier container scan:
+- **Application Container Image**: Scans the newly generated container image layers for package vulnerabilities (CVEs), outdated dependencies, and OS-level libraries.
+- **Referenced Upstream Images**: Parses the `Dockerfile` to extract all `FROM` directives and sidecar base images, ensuring upstream images meet security baselines before the final image is published to the registry.
+
+```
+Application Packaging (Helm / Docker)
+  │
+  ├── 1. Primary Container Artifact Scan
+  │      └── Inspects application binaries, runtime libraries, and OS packages
+  │
+  ├── 2. Referenced Base Image Scan
+  │      └── Validates base images (e.g., eclipse-temurin:21-jre-alpine)
+  │
+  └── 3. Vulnerability Aggregation & Policy Evaluation
+```
+
+## Tiered Environment Gates: Soft-Pass vs. Hard-Block
+
+A common failure mode when rolling out security scanning is blocking all builds immediately, which halts developer velocity and causes alert fatigue. We adopted a tiered gating strategy based on deployment environments:
+
+### Development and QA: Visibility and Soft Gates
+- In the **Dev** environment, the container image is built and scanned.
+- The action calculates the total number of High and Critical vulnerabilities.
+- It generates a Software Bill of Materials (SBOM) and posts a detailed summary into the pipeline output.
+- An automated notification is sent to the development and security email distribution group with direct links to the Wiz portal.
+- The pipeline does not fail, allowing developers to continue testing functional features while remediation is scheduled.
+- **QA** receives the exact container image built in Dev after smoke tests pass, ensuring environment consistency.
+
+### UAT and Production: Zero Tolerance Hard Gates
+- In **UAT**, where release candidates undergo stakeholder and user validation, the container image is rebuilt or promoted.
+- The `wiz-container-scan` action evaluates strict admission criteria:
+  - **Critical Vulnerabilities**: 0 allowed.
+  - **High Vulnerabilities**: 0 allowed.
+- If a single High or Critical vulnerability or an unapproved license is detected, the pipeline exits with a non-zero exit code, aborting the deployment immediately.
+- **Production** only accepts release artifacts that have successfully passed the UAT hard gate, ensuring no critical vulnerability can ever reach live customer workloads.
+
+```
+Pipeline Gating Rules:
+- Dev / QA:
+  - Severity: Low / Med / High / Critical
+  - Action: Warn, generate SBOM, dispatch email report
+  - Pipeline Status: Success (Soft Pass)
+- UAT / Production:
+  - Severity: High / Critical
+  - Action: Abort workflow immediately, block deployment
+  - Pipeline Status: Failure (Hard Block)
+```
+
+## Automated SBOM Generation and Alerting
+
+Compliance and audit requirements mandate a complete inventory of every software component deployed to regulated environments.
+
+During every container scan, the composite action:
+- Extracts the comprehensive Software Bill of Materials (SBOM) in standard CycloneDX and SPDX formats.
+- Uploads the SBOM artifact to the workflow run for compliance retention.
+- Constructs an email summary containing:
+  - Repository name and commit SHA.
+  - Build number and author.
+  - Total vulnerability counts categorized by severity (Critical, High, Medium, Low).
+  - Direct hyperlinks to the Wiz console for detailed remediation guidance.
+
+```bash
+# Example output snippet generated by composite action
+==================================================
+WIZ SECURITY SCAN SUMMARY
+Target: registry.internal/payments/api:v2.4.1
+Scan Type: Container Image & Upstream Base
+==================================================
+Critical: 0
+High:     0
+Medium:   3
+Low:      11
+SBOM:     Uploaded to workflow artifacts (CycloneDX)
+Status:   PASSED (UAT/Production Threshold Met)
+==================================================
+```
+
+## Key Engineering Takeaways
+
+- **Decouple scan logic from application repos**: Using a central `pipeline-actions` repository allows the security and platform teams to update scanner versions, compliance rules, and reporting formats without opening PRs across dozens of application codebases.
+- **Never store static scanner tokens in repositories**: Combining ephemeral runners with a dynamic secret manager (such as BeyondTrust Vault) ensures zero long-lived scanner credentials exist on disk or in repository settings.
+- **Scan both the app and its upstream foundations**: Scanning only the final image misses vulnerabilities lurking in unpinned base images. Always scan referenced upstream images during the build cycle.
+- **Tier your gates to balance velocity and safety**: Use soft-pass visibility gates in Dev and QA to prevent developer friction, while enforcing hard-blocking zero-tolerance gates in UAT and Production to guarantee release security.

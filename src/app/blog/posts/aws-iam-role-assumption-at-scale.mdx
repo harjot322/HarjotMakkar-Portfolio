@@ -2,12 +2,14 @@
 title: "Multi-Account AWS Automation: IAM Role Assumption at Scale"
 publishedAt: "2025-03-05"
 summary: "Running automation across hundreds of AWS accounts doesn't require long-lived credentials in every account. Here's how IAM role assumption creates a scalable, auditable, and secure cross-account access pattern."
-image: "/images/projects/project-01/cover-03.jpg"
+image: "/images/blog/cross-account-iam-role-assumption.svg"
 ---
 
 ## The Problem With Per-Account Credentials
 
 If you need to query inventory, apply configuration, or collect metrics across a large AWS estate, the naive approach is to maintain credentials for each account. This creates a credential management problem that scales with the number of accounts - hundreds of access keys to rotate, audit, and secure.
+
+> **Deep-Dive Case Study**: For the complete production architecture, fleet inventory dashboard, and FinOps zombie resource reclamation across 400+ accounts, read [Automating Cloud Inventory Across 400+ AWS Accounts](/work/cloud-inventory-automation-400-accounts).
 
 IAM role assumption solves this. A single automation account holds a minimal identity. Each target account has a role that trusts that identity. The automation assumes that role when it needs to work in a target account, operates for the duration of the task, and releases the temporary credentials when done.
 

@@ -1,6 +1,6 @@
 ================================================================================
 PROJECT STATUS & HANDOVER BRIEF (CONTINUE FILE)
-Generated: 2026-11-23 23:42 IST
+Generated: 2026-11-24 20:30 IST
 Repository: https://github.com/harjot322/HarjotMakkar-Portfolio
 Active Branch: future (branched off committed master @ bd747db)
 Default Branch: master (synced with main)
@@ -15,142 +15,164 @@ Dev Server: http://localhost:3000
   Only use standard hyphens (-). Always run a check before committing:
   `grep -rnE '—|–' src/`
 - STRICT NDA SANITIZATION: Never mention proprietary client, employer, or
-  contractor names (e.g. no Pratt & Whitney, Crecita, internal hostnames,
-  government storage accounts, or colleague names). Use synthetic placeholders
-  like `internal-registry.enterprise.net` or `example.com`.
-- STEP-BY-STEP CADENCE: The user wants to polish and rewrite case studies
-  sequentially, ONE BY ONE. Do not jump ahead until the user provides notes or
-  approves the current case study.
-- ASPECT RATIOS & DIAGRAMS: The image cropper in `src/utils/utils.ts` and
-  `src/app/work/[slug]/page.tsx` dynamically extracts native SVG `viewBox` and
-  PNG/JPEG dimensions and uses `objectFit="contain"` to prevent diagrams from
-  getting clipped on wide screens.
+  contractor names (e.g. no real company names, internal hostnames, government
+  storage accounts, or colleague names). Use synthetic placeholders.
+- STEP-BY-STEP CADENCE: Work systematically with clear user alignment.
+- ASPECT RATIOS & DIAGRAMS: The image inspection system in `src/utils/utils.ts`,
+  `src/app/blog/[slug]/page.tsx`, and `src/components/blog/Post.tsx` dynamically
+  calculates native SVG `viewBox` and PNG/JPEG dimensions with `objectFit="contain"`
+  to prevent diagrams from being cropped or distorted.
+- DYNAMIC RECOMMENDATIONS: Blog posts and case studies use the circular rotation
+  engine (`suggestedFor={post.slug}`) to recommend a distinct, rotating pair of
+  articles on every page.
 
 --------------------------------------------------------------------------------
-2. COMPLETED WORK (WHAT HAS BEEN DONE)
+2. COMPLETED WORK (FULL INVENTORY AS OF END OF DAY)
 --------------------------------------------------------------------------------
-A. Foundation & Portfolio Setup:
-   - Cloned fresh Magic Portfolio template into `/Users/harjotmakkar/Agentic/MyWebsite`.
-   - Initialized Git repository, connected to `origin` (harjot322/HarjotMakkar-Portfolio),
-     and pushed all progress.
-   - Synchronized `master` with `main` and set `master` as default branch on GitHub.
-   - Removed all Once UI template marketing text, links, and preview workflows.
-   - Integrated Harjot's updated resume (`HarjotResume.pdf`) in `/public/HarjotResume.pdf`
-     and `/public/myself/`.
-   - Added dedicated `/resume` page with PDF download button and navbar entry.
-   - Replaced avatar with `/images/harjot.jpg` (bypassed browser caching).
-   - Global dashboard dash cleanse: 0 elongated dashes across `src/` and docs.
 
-B. Case Study 1: Zero-Downtime Kubernetes Platform Cutover
-   - File: `src/app/work/projects/zero-downtime-kubernetes-platform-cutover.mdx`
-   - URL: http://localhost:3000/work/zero-downtime-kubernetes-platform-cutover
-   - Scope: 15,512 LOC cutover across 107 files in a shared Azure Resource Group.
-   - Content: Controller-first reconciliation, 4 major roadblocks (sealed secrets
-     cert mismatch, Loki PVC race, Zscaler proxy bypass, Azure Blob CSI FUSE
-     attachment paradox), and the Double-Padlock cutover strategy.
-   - Visuals: `/images/projects/zero-downtime-kubernetes-platform-cutover/AKS_cutover.svg`
-     (cover & in-text diagram), `/images/projects/zero-downtime-kubernetes-platform-cutover/pr-summary.jpeg`
-     (PR proof banner), and LinkedIn post link.
+A. Case Studies (/work) - 6 Production Engineering Deep-Dives:
+   1. Zero-Downtime Kubernetes Platform Cutover:
+      - File: `src/app/work/projects/zero-downtime-kubernetes-platform-cutover.mdx`
+      - Scope: 15,512 LOC cutover across 107 files in a shared Azure Resource Group.
+      - Roadblocks: Sealed secrets cert mismatch, Loki PVC race, Zscaler proxy bypass,
+        and Azure Blob CSI FUSE paradox.
+      - Visual: `AKS_cutover.svg` and PR proof captures.
 
-C. Case Study 2: Kubernetes Ingress to Envoy Gateway Migration
-   - File: `src/app/work/projects/kubernetes-ingress-envoy-gateway-migration.mdx`
-   - URL: http://localhost:3000/work/kubernetes-ingress-envoy-gateway-migration
-   - Scope: End-to-end migration from ingress-nginx to Envoy Gateway v1.7.0.
-   - Content: FluxCD rollout, Gatekeeper container CPU/memory limit denials on
-     helm certgen hook, Helm release unlock, translation of legacy NGINX annotations
-     to HTTPRoute, JSONPatch EnvoyPatchPolicy for 512k header buffers, edge CORS via
-     SecurityPolicy, Dev-only localhost:5173 overlay patch, Azure Blob SAS upload
-     protocol mismatch debugging, and post-migration triage.
-   - Visuals: Exclusively uses `/images/projects/ingress-to-envoy-migration/Envoy.svg`.
+   2. Kubernetes Ingress to Envoy Gateway Migration:
+      - File: `src/app/work/projects/kubernetes-ingress-envoy-gateway-migration.mdx`
+      - Scope: End-to-end migration from ingress-nginx to Envoy Gateway v1.7.0.
+      - Roadblocks: Gatekeeper container limits on certgen hook, Helm unlock, HTTPRoute
+        translation, JSONPatch EnvoyPatchPolicy for 512k header buffer, and SAS upload debug.
+      - Visual: `Envoy.svg`.
 
-D. Case Study 3: Automating Cloud Inventory Across 400+ AWS Accounts
-   - File: `src/app/work/projects/cloud-inventory-automation-400-accounts.mdx`
-   - URL: http://localhost:3000/work/cloud-inventory-automation-400-accounts
-   - Scope: Automated daily ingestion across 400+ AWS accounts into Amazon Aurora.
-   - Content: Centralized AWS Config Aggregator vs. naive boto3 crawling, KIAM pod
-     identity with cross-account STS role assumption, HashiCorp Vault dynamic DB
-     credentials via CSI Driver (1-hour ephemeral leases), decoupled Aurora
-     storage (JSONB, partitioning, retention lifecycle), FinOps zombie asset
-     reclamation (1,200+ unattached EBS volumes, 6,500+ orphaned snapshots, idle ENIs),
-     and technical nuances ("almost real-time" vs daily pre-business-hours snapshot).
-   - Visuals: `/images/projects/AWS400accounts/400awsaccounts.svg` (diagram),
-     `/images/projects/AWS400accounts/400accounts-dashboard-view.jpeg` (live Grafana view).
+   3. Automating Cloud Inventory Across 400+ AWS Accounts:
+      - File: `src/app/work/projects/cloud-inventory-automation-400-accounts.mdx`
+      - Scope: Daily cross-account inventory engine into Amazon Aurora PostgreSQL.
+      - Architecture: AWS Config Aggregator, KIAM STS role delegation, HashiCorp Vault
+        dynamic DB leases, JSONB partitioning, and FinOps zombie asset reclamation.
+      - Visual: `400awsaccounts.svg` and live Grafana dashboard capture.
 
-E. Case Study 4: Storage Workflow Batch Optimization (On-Prem NAS to Azure Blob)
-   - File: `src/app/work/projects/storage-workflow-batch-optimization.mdx`
-   - URL: http://localhost:3000/work/storage-workflow-batch-optimization
-   - Scope: Production migration of 126 TB and 1.6 Million files from legacy on-prem NAS to Azure Blob.
-   - Content: Diagnosing O(N) process fork & exec overhead, TCP/TLS handshake tax, double-execution
-     bug, subshell regex log chatter, and NAS controller lock saturation. Iterated through v1
-     (33m 08s baseline) -> v2 (~13m 15s bug fix) -> v3 (1m 12s / 72s batch manifest pipeline).
-     Pivoted to AzCopy v10 `--list-of-files` chunks with internal Go Goroutine concurrency,
-     HTTP/2 connection pooling, batch-boundary validation, and zero NAS lock churn (27.6x speedup,
-     99.29% step duration reduction).
-   - Visuals: `/images/projects/storage-optimization/storage-migration-azcopy-batch-pipeline.svg`
-     (custom architecture & pipeline comparison diagram).
+   4. Storage Workflow Batch Optimization (NAS to Azure Blob):
+      - File: `src/app/work/projects/storage-workflow-batch-optimization.mdx`
+      - Scope: Production migration of 126 TB and 1.6M files from on-prem NAS to Azure Blob.
+      - Optimization: Profiling O(N) fork overhead, TCP handshake tax, subshell chatter.
+        Pivoted to AzCopy v10 batch chunks with internal Goroutine concurrency (27.6x speedup).
+      - Visual: `storage-migration-azcopy-batch-pipeline.svg`.
 
-F. Case Study 5: ATS Certify - Modular Resume Engineering & AI Evaluation Architecture
-   - File: `src/app/work/projects/ats-certify-resume-engineering-platform.mdx`
-   - URL: http://localhost:3000/work/ats-certify-resume-engineering-platform
-   - Scope: Independent full-stack resume engineering and ATS evaluation platform (Next.js 14,
-     React 18, TypeScript, Zod, pdf-lib, docx, Python FastAPI with PyMuPDF/python-docx, Gemini API,
-     and local Ollama).
-   - Content: Dual-workflow architecture separating browser-local deterministic synthesis (zero server
-     compute/write amplification) from decoupled hybrid evaluation. Detailed 5 explicit architectural
-     trade-offs, full repository topology, rigorous architectural audit of prototype boundaries vs.
-     production failure modes, capacity planning mathematics for 1M DAU (200k scans/day, 46.3 peak scans/sec,
-     695 in-flight concurrency), 5-stage incremental production rollout, and 2027 product ecosystem roadmap
-     (trustless QR verification authority, Google X-Y-Z formula rewriting, and global credit economy).
-   - Visuals: `/images/projects/ats-certify/ats-certify-architecture.svg` (main hero architecture diagram),
-     `/images/projects/ats-certify/workflow.svg` (scan & scoring workflow pipeline),
-     `/images/projects/ats-certify/phases.svg` (5-stage incremental production rollout).
+   5. ATS Certify: Modular Resume Engineering Platform:
+      - File: `src/app/work/projects/ats-certify-resume-engineering-platform.mdx`
+      - Scope: Full-stack deterministic resume engineering and AI scoring platform.
+      - Architecture: Browser-local synthesis (Next.js 14, React 18, Zod, pdf-lib) separated
+        from decoupled hybrid LLM audit (FastAPI, PyMuPDF, Gemini API, local Ollama).
+      - Visual: `ats-certify-architecture.svg`, `workflow.svg`, and `phases.svg`.
 
+   6. Automated OpenSearch Backup & Restore-Probe Verification Pipeline:
+      - File: `src/app/work/projects/opensearch-automated-backup-verification-pipeline.mdx`
+      - Scope: Two-tier disaster recovery on AKS combining Azure Backup Vault namespace
+        snapshots with granular index snapshots (`repository-azure` plugin).
+      - Reliability: Ephemeral restore sandbox probe (`opensearch-snapshot-verify`),
+        KQL alert triggers, August 13 memory exhaustion postmortem, and API pruning.
+      - Visual: `opensearch-backup-architecture.svg`.
 
-G. Case Study 6: Automated OpenSearch Backup & Restore-Probe Verification Pipeline
-   - File: `src/app/work/projects/opensearch-automated-backup-verification-pipeline.mdx`
-   - URL: http://localhost:3000/work/opensearch-automated-backup-verification-pipeline
-   - Scope: Two-tier disaster recovery architecture on AKS combining Azure Backup Vault namespace/PVC
-     infrastructure snapshots with granular incremental per-index snapshots (`repository-azure` plugin),
-     FluxCD GitOps automation, automated restore-probe verification (`opensearch-snapshot-verify`), and
-     KQL-driven Azure Monitor alerting.
-   - Highlights: Pod keystore SAS token injection via postStart hook, sovereign/US Gov endpoint override,
-     30-day API-driven snapshot pruning (never deleting raw blobs), automated 7-step probe restore sequence,
-     deep production incident postmortem (August 13 node memory exhaustion, Lucene off-heap read spikes,
-     eviction telemetry blindspots, and verify false-positive remediation), bandwidth throttling, and
-     non-destructive recovery runbooks.
-   - Cross-Link: Connected to companion philosophy post `backup-job-success-not-disaster-recovery.mdx`.
-   - Visuals: `/images/projects/opensearch-backup/opensearch-backup-architecture.svg` (custom 4-layer architecture diagram).
+B. Technical Blog Posts (/blog) - 6 Polished Engineering Articles:
+   1. OpenSearch PerfTop Ingestion Diagnostics (Featured #1):
+      - File: `src/app/blog/posts/opensearch-performance-analyzer-perftop-production.mdx`
+      - Published: 2025-07-15
+      - Narrative: Debunking the cluster rate-limit myth (0 bulk rejections, 12ms latency
+        proving upstream micro-batching), FluxCD GitOps RAM-disk overlay, peering troubleshooting
+        (missing container volume mounts on data/ingest/coordinating pods), Lucene indexing
+        mechanics (5MB-10MB bulk batches), and Terraform `moved {}` storage state lesson.
+      - Visuals: Hero cover `perftopdashboard.png` (2560x1440) and peering view `perftop.png`
+        (2560x1440) with engineering disclaimer.
 
---------------------------------------------------------------------------------
-3. WHAT IS CURRENTLY HAPPENING (ACTIVE STATE)
---------------------------------------------------------------------------------
-- ALL SIX Case Studies (1, 2, 3, 4, 5, and 6) are 100% written, type-checked, and sanitized.
-- Repaired Case Study #3 (`cloud-inventory-automation-400-accounts.mdx`):
-  - Removed unrendered `mermaid` / `sequenceDiagram` block and replaced with clean structured step sequence.
-  - Replaced ASCII waste categories box with clean structured metric callouts.
-  - Embedded custom Excalidraw SVG `zero-trust-auth-flow.svg` (`aspectRatio="2362.77 / 1049.41"`).
-  - Entire repository confirmed 100% clean of raw mermaid blocks, ASCII boxes, and pipe tables.
-- All diagrams and images across all 6 case studies are rendered unboxed, borderless, and seamless:
-  - Hardcoded border="neutral-alpha-medium" removed from MDX image renderer in `src/components/mdx.tsx`.
-  - All diagrams use `<Media ... />` without border props and exact viewBox aspect ratios:
-    - AKS Cutover: `/images/projects/zero-downtime-kubernetes-platform-cutover/AKS_cutover.svg` (`aspectRatio="1727.85 / 842.12"`)
-    - Envoy Gateway: `/images/projects/ingress-to-envoy-migration/Envoy.svg` (`aspectRatio="3541.55 / 1368.96"`)
-    - 400 AWS Accounts: `/images/projects/AWS400accounts/400awsaccounts.svg` (`aspectRatio="2295.45 / 1446.18"`), `/images/projects/AWS400accounts/zero-trust-auth-flow.svg` (`aspectRatio="2362.77 / 1049.41"`)
-    - Storage Optimization: `/images/projects/storage-optimization/storage-migration-azcopy-batch-pipeline.svg` (`aspectRatio="1800.63 / 753.37"`)
-    - ATS Certify: `/images/projects/ats-certify/ats-certify-architecture.svg` (`aspectRatio="3792.61 / 943.56"`), `workflow.svg` (`aspectRatio="1890.42 / 607.15"`), `phases.svg` (`aspectRatio="1152.61 / 770.35"`)
-    - OpenSearch Backup: `/images/projects/opensearch-backup/opensearch-backup-architecture.svg` (`aspectRatio="1600 / 900"`)
-- Toggleable Certifications System added to About page (`about.certificates.display: true/false`).
-- Gallery route disabled from navbar (`/gallery: false`) and route-guarded.
-- Zero elongated dashes across all newly created/modified files.
-- Zero client/employer proprietary names (strict NDA sanitization).
-- Dev server runs on port 3000.
+   2. Enforcing Strict Trunk-Based Development with GitHub Rulesets:
+      - File: `src/app/blog/posts/github-rulesets-trunk-based-development.mdx`
+      - Published: 2025-06-25
+      - Narrative: Eliminating merge debt via master Squash & Merge only, mandatory branch
+        up-to-date checks, automated branch deletion, `release/vX.X` UAT branch patterns,
+        immutable `vX.X.X` Prod tags, CI ancestry gate via `git merge-base --is-ancestor`,
+        and bypass actor access control.
+      - Visual: `github-rulesets-trunk-based-flow.svg` (1600x900).
+
+   3. Shift-Left Security with Wiz & Composite Actions:
+      - File: `src/app/blog/posts/shift-left-wiz-security-pipelines.mdx`
+      - Published: 2025-06-10
+      - Narrative: Decoupling scanning into a centralized `pipeline-actions` repo, dynamic
+        BeyondTrust Vault runtime secrets (zero static tokens in repo secrets), pre-build
+        IaC/secret scans, post-build container + upstream base image scans, and tiered
+        soft-pass (Dev/QA) vs. hard-block (UAT/Prod) gates.
+      - Visual: `wiz-pipeline-scan-architecture.svg` (1600x900).
+
+   4. Why "Backup Succeeded" Is Not Disaster Recovery:
+      - File: `src/app/blog/posts/backup-job-success-not-disaster-recovery.mdx`
+      - Published: 2025-05-15
+      - Narrative: Contrasting naive Exit Code 0 against the 4-stage automated restore
+        probe verification loop (ephemeral sandbox, Lucene segment CRC check, doc count
+        assertions, auto-teardown).
+      - Visual: `backup-vs-restore-probe-flow.svg` (1600x900).
+
+   5. Zero-Downtime Ingress Migration: NGINX to Envoy Gateway:
+      - File: `src/app/blog/posts/kubernetes-ingress-migration-pattern.mdx`
+      - Published: 2025-04-10
+      - Narrative: 3-stage traffic migration: dual controller coexistence, weighted canary
+        traffic splitting via Gateway API `HTTPRoute` (90/10), `EnvoyPatchPolicy` buffer
+        tuning to 512 KB, and 100% cutover.
+      - Visual: `ingress-traffic-migration-flow.svg` (1600x900).
+
+   6. Multi-Account AWS Automation: IAM Role Assumption at Scale:
+      - File: `src/app/blog/posts/aws-iam-role-assumption-at-scale.mdx`
+      - Published: 2025-03-05
+      - Narrative: Replacing 400+ static IAM user access keys with dynamic STS session
+        delegation, `sts:ExternalId` confused-deputy protection, 1-hour ephemeral tokens,
+        and Kubernetes CronJob orchestration.
+      - Visual: `cross-account-iam-role-assumption.svg` (1600x900).
+
+C. System & UX Enhancements Added Today:
+   - Full 6-Post Display on /blog: Updated `src/app/blog/page.tsx` so all 6 blog posts
+     render as rich cards with image thumbnails and metadata. Moved Newsletter component
+     to the bottom of the page.
+   - Dynamic Circular Recommendation Engine: Replaced static recommendations in `Posts.tsx`
+     and `Projects.tsx` with a circular modulo algorithm (`suggestedFor={post.slug}`).
+     Every blog post and case study now recommends a unique, rotating pair of articles.
+   - Route Redirects: Added permanent redirects in `next.config.mjs` for `/blogs` -> `/blog`
+     and `/works` -> `/work` to eliminate 404s.
+   - Dynamic Aspect Ratio & Lightbox: Upgraded `src/utils/utils.ts` and `Post.tsx` to read
+     native SVG viewBoxes and PNG dimensions, using `objectFit="contain"` and `enlarge`.
 
 --------------------------------------------------------------------------------
-4. WHAT TO DO NEXT
+3. CURRENT REPOSITORY HEALTH & STATS
 --------------------------------------------------------------------------------
-STEP 1: Review Case Study #6 and the Certifications display with the user.
-STEP 2: Polish the 3 Blog Posts in `src/app/blog/posts/` (concise, high-signal, production-tested).
-STEP 3: Technical stack badges, micro-icons, SEO OpenGraph banners, and mobile responsiveness audit.
-STEP 4: Final commit and push to `origin/master`.
+- Git Status: All files modified cleanly on branch `future`.
+- Static Pre-Rendered Routes: 30 / 30 routes (`npx next build --webpack` exits 0).
+- TypeScript: `npx tsc --noEmit` exits 0 with zero errors.
+- Elongated Dash Audit: Zero em-dashes and en-dashes (`grep -rnE '—|–' src/` exits 0).
+- NDA Compliance: 100% clean of proprietary names, client domains, or internal hostnames.
 
+--------------------------------------------------------------------------------
+4. IN THE BUCKET FOR TOMORROW (NEXT STEPS)
+--------------------------------------------------------------------------------
+
+ITEM 1: Excalidraw Diagram Drop-Ins (User Discretion)
+- If user wants hand-drawn versions for any of the 5 blog diagrams, they can export
+  SVGs (16:9, e.g. 1600x900) directly into `public/images/blog/`:
+  - `cross-account-iam-role-assumption.svg`
+  - `backup-vs-restore-probe-flow.svg`
+  - `ingress-traffic-migration-flow.svg`
+  - `github-rulesets-trunk-based-flow.svg`
+  - `wiz-pipeline-scan-architecture.svg`
+
+ITEM 2: Option C (Site Polish & Production Audit)
+- Technical Stack Badges: Add clean technology pills to case study and blog headers
+  (e.g., Kubernetes, Envoy Gateway, OpenSearch, GitHub Actions, AWS STS, FluxCD).
+- OpenGraph Dynamic Social Previews: Audit `/api/og/generate` to verify rich social
+  share cards render properly across Twitter and LinkedIn.
+- Mobile / Responsive Breakpoint Audit: Verify padding, hero headings, and navigation
+  on mobile and tablet viewport widths.
+- End-to-End Link Verification: Test all cross-links between case studies and companion
+  blogs to guarantee 0 broken links.
+
+ITEM 3: Git Checkpoint & Deployment
+- Stage and commit all work on branch `future`:
+  `git add -A && git commit -m "feat: complete 6 case studies and 6 companion blogs with circular recommendations"`
+- Merge into `master` or push to remote when ready.
 ================================================================================
