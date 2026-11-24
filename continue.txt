@@ -2,6 +2,7 @@
 PROJECT STATUS & HANDOVER BRIEF (CONTINUE FILE)
 Generated: 2026-11-23 23:42 IST
 Repository: https://github.com/harjot322/HarjotMakkar-Portfolio
+Active Branch: future (branched off committed master @ bd747db)
 Default Branch: master (synced with main)
 Owner: Harjot Singh Makkar (harjotdesk@gmail.com)
 Local Working Directory: /Users/harjotmakkar/Agentic/MyWebsite
