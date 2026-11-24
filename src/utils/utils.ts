@@ -32,7 +32,7 @@ export function getImageAspectRatio(imgPath: string): string | undefined {
     if (buf.length < 24) return undefined;
     // SVG
     if (cleanPath.endsWith(".svg")) {
-      const content = buf.toString("utf-8", 0, Math.min(buf.length, 4096));
+      const content = buf.toString("utf-8", 0, Math.min(buf.length, 65536));
       const vbMatch = content.match(/viewBox=["']([\d\.\s,-]+)["']/);
       if (vbMatch) {
         const parts = vbMatch[1].trim().split(/[\s,]+/);
@@ -41,6 +41,13 @@ export function getImageAspectRatio(imgPath: string): string | undefined {
           const h = parseFloat(parts[3]);
           if (w > 0 && h > 0) return `${w} / ${h}`;
         }
+      }
+      const wMatch = content.match(/<svg[^>]*\bwidth=["']([\d\.]+)p?x?["']/);
+      const hMatch = content.match(/<svg[^>]*\bheight=["']([\d\.]+)p?x?["']/);
+      if (wMatch && hMatch) {
+        const w = parseFloat(wMatch[1]);
+        const h = parseFloat(hMatch[1]);
+        if (w > 0 && h > 0) return `${w} / ${h}`;
       }
     }
     // PNG

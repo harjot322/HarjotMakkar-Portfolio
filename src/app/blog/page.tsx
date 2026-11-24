@@ -18,7 +18,7 @@ export async function generateMetadata() {
 
 export default function Blog() {
   const allBlogs = getPosts(["src", "app", "blog", "posts"]);
-  const hasEarlierPosts = allBlogs.length > 3;
+  const hasMultiplePosts = allBlogs.length > 1;
 
   return (
     <Column maxWidth="m" paddingTop="24">
@@ -40,16 +40,10 @@ export default function Blog() {
       </Heading>
       <Column fillWidth flex={1} gap="40" s={{ gap: "24" }}>
         <Posts range={[1, 1]} thumbnail />
-        <Posts range={[2, 3]} columns="2" thumbnail direction="column" />
-        <Newsletter marginBottom="l" />
-        {hasEarlierPosts && (
-          <>
-            <Heading as="h2" variant="heading-strong-xl" marginLeft="l">
-              Earlier posts
-            </Heading>
-            <Posts range={[4]} columns="2" />
-          </>
+        {hasMultiplePosts && (
+          <Posts range={[2]} columns="2" thumbnail direction="column" />
         )}
+        <Newsletter marginBottom="l" />
       </Column>
     </Column>
   );

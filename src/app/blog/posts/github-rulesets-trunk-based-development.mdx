@@ -1,0 +1,180 @@
+---
+title: "Enforcing Strict Trunk-Based Development at Scale with GitHub Rulesets"
+publishedAt: "2025-06-25"
+summary: "How we enforced pure trunk-based development across microservices using GitHub Rulesets: single-click Squash and Merge, release/vX.X branch gating, vX.X.X production tags, and custom ancestry verification."
+image: "/images/blog/github-rulesets-trunk-based-flow.svg"
+---
+
+## The True Cost of Branch Drift and Merge Debt
+
+In many engineering organizations, branching models start with good intentions but quickly devolve into merge debt. Long-lived feature branches, GitFlow release candidates, and hotfix branches linger for weeks. When it comes time to release:
+- Developers spend hours resolving conflicting merge commits.
+- Git histories turn into spaghetti graphs, making `git bisect` and automated rollbacks unreliable.
+- Code validated in testing environments differs subtly from what finally merges to production due to out-of-order merges.
+
+To solve this, we committed to strict [Trunk-Based Development](https://trunkbaseddevelopment.com). In trunk-based development:
+- Every developer works on short-lived feature branches that merge back to the trunk (`master`) within 1 to 2 days.
+- The trunk remains continuously releasable.
+- Releases are cut directly from the trunk or dedicated release branches, never through complex multi-branch merges.
+
+However, culture and documentation alone do not maintain branching discipline. As teams scale, you need automated, policy-enforced guardrails. Here is how we leveraged modern GitHub Rulesets and custom CI verification gates to enforce strict trunk-based delivery across our microservices.
+
+## Guardrail 1: Enforcing Linear History on the Master Trunk
+
+The trunk is the single source of truth. To keep the trunk clean, bisectable, and predictable, we implemented a comprehensive Ruleset on the default branch:
+
+### 1. Squash and Merge Exclusively
+We disabled standard merge commits and rebase-merges entirely in repository settings. Every pull request merged into `master` must use **Squash and merge**.
+- A feature branch with 20 intermediate WIP commits is squashed into a single, clean commit on `master`.
+- The squashed commit references the pull request number, providing an atomic, traceable change.
+- Reverting a change in production requires reverting exactly one commit.
+
+### 2. Mandatory Branch Up-to-Date Requirement
+We enabled the rule *"Require branches to be up to date before merging"*.
+- If developer Alice and developer Bob both open PRs, and Alice's PR merges first, Bob's branch is immediately marked out of date.
+- Bob must rebase or update his branch against the latest `master` and pass all CI checks before GitHub permits the merge.
+- This eliminates "semantic merge conflicts" where two pull requests compile cleanly in isolation but break when combined.
+
+### 3. Automated Head Branch Deletion
+We enabled automated branch deletion upon merge.
+- The moment a PR is squashed into `master`, GitHub deletes the remote feature branch.
+- This prevents stale branches from lingering in the repository and avoids developer confusion over which branches are active.
+
+### 4. Mandatory Status Checks
+No pull request can merge into `master` without green status checks from:
+- Compilation and unit test execution.
+- Code coverage thresholds.
+- Static analysis (SAST) and software composition analysis (SCA).
+- Wiz Infrastructure as Code (IaC) directory scans.
+
+## Guardrail 2: Structured Release Branches (`release/vX.X`) for UAT
+
+While pure trunk-based development encourages deploying directly from the trunk in web-scale environments, regulated enterprise architectures frequently require a formal User Acceptance Testing (UAT) sign-off period before promoting to Production.
+
+To accommodate this without polluting the trunk, we established a strict release branch pattern governed by GitHub Rulesets:
+
+```
+Branch Naming Convention:
+- Pattern: release/vX.X
+- Valid Examples: release/v1.0, release/v2.4, release/v12.3
+- Invalid Examples: release/v1.0.1 (patch suffix forbidden), release/hotfix-bug
+```
+
+### Why We Forbid Patch Suffixes on Release Branches
+A common anti-pattern is creating `release/v1.0.1` or `release/v1.0-bugfix` branches. This encourages engineers to branch off a branch, creating branching sprawl.
+
+Instead, we enforced that release branches represent **major.minor** versions only (`release/vX.X`). If a defect is discovered during UAT:
+1. The fix is committed to a short-lived feature branch off `master`.
+2. The fix is tested, approved, and squashed into `master`.
+3. The fix is cherry-picked back into `release/vX.X`.
+
+This guarantees that every bug fix lives on `master` first, eliminating the dreaded scenario where a production hotfix is forgotten and lost in subsequent releases.
+
+The `release/vX.X` branches automatically deploy to UAT environments, where business stakeholders validate features against staging data.
+
+## Guardrail 3: Production Deployments via SemVer Tags (`vX.X.X`)
+
+Production deployments are never triggered by pushing to a branch. Instead, Production releases are triggered exclusively by immutable Git tags following strict Semantic Versioning:
+
+```
+Tag Naming Convention:
+- Pattern: vX.X.X
+- Valid Examples: v1.0.0, v1.0.1, v2.4.0
+- Target Environment: Production
+```
+
+We configured a GitHub Ruleset specifically targeting the `v*` tag ref pattern:
+- **Block tag creation**: Standard developers cannot push tags directly.
+- **Block tag deletion and updates**: Once a tag is published, it is immutable. It can never be moved to a different commit or deleted.
+- **Bypass Actors**: Tag creation is restricted strictly to designated GitHub Teams (such as Infrastructure SREs and Release Managers).
+
+## The Missing Link: Custom Promotional Origin Verification
+
+Setting up branch patterns and tag rulesets created clear boundaries, but it exposed an edge-case risk:
+
+*What prevents an authorized release manager from tagging a random commit on master or an untested experimental branch as `v1.0.0` and triggering a production deployment?*
+
+In a regulated pipeline, Production artifacts must represent code that has **already been validated in UAT**. We needed mathematical proof that the production tag originated from the corresponding UAT release branch.
+
+To enforce this, we authored a custom CI promotional gate that runs as the first step of the production release workflow:
+
+```yaml
+name: Production Release Gate
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  verify-promotion-origin:
+    runs-on: [self-hosted, linux-x64]
+    steps:
+      - name: Checkout Full Git History
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify Tag Ancestry from Release Branch
+        run: |
+          set -euo pipefail
+          TAG_NAME="${GITHUB_REF_NAME}"
+          
+          # Extract Major.Minor from vX.Y.Z (e.g., v1.4.2 -> 1.4)
+          VERSION_CORE="${TAG_NAME#v}"
+          MAJOR_MINOR=$(echo "${VERSION_CORE}" | cut -d. -f1,2)
+          EXPECTED_RELEASE_BRANCH="origin/release/v${MAJOR_MINOR}"
+
+          echo "Validating that tag ${TAG_NAME} descends from ${EXPECTED_RELEASE_BRANCH}..."
+
+          # Verify the release branch exists in remote
+          if ! git rev-parse --verify "${EXPECTED_RELEASE_BRANCH}" >/dev/null 2>&1; then
+            echo "ERROR: Required release branch ${EXPECTED_RELEASE_BRANCH} does not exist!"
+            exit 1
+          fi
+
+          # Mathematically check if the tag commit is an ancestor of the release branch
+          TAG_COMMIT=$(git rev-parse "${TAG_NAME}^{commit}")
+          
+          if git merge-base --is-ancestor "${TAG_COMMIT}" "${EXPECTED_RELEASE_BRANCH}"; then
+            echo "SUCCESS: Tag ${TAG_NAME} (${TAG_COMMIT}) is a valid ancestor of ${EXPECTED_RELEASE_BRANCH}."
+          else
+            echo "CRITICAL FAILURE: Tag ${TAG_NAME} did NOT originate from ${EXPECTED_RELEASE_BRANCH}!"
+            echo "Production releases must be promoted strictly from their corresponding UAT release branch."
+            exit 1
+          fi
+```
+
+### How `git merge-base --is-ancestor` Works
+The command `git merge-base --is-ancestor <commit1> <commit2>` checks whether `<commit1>` is reachable from `<commit2>` in the Git commit graph:
+- If someone creates tag `v1.4.0` from a random branch or an unreleased `master` commit, the check returns exit code 1 and immediately aborts the deployment.
+- If the tag was created from the verified HEAD of `release/v1.4`, the command returns exit code 0 and the pipeline proceeds.
+
+This turns promotion into an automated, verifiable guarantee rather than a manual checklist item.
+
+## Granular Access Control with GitHub Ruleset Bypass Actors
+
+To balance strict automated protection with operational resilience, we used GitHub Rulesets to define granular permissions:
+
+```
+Role & Permissions Matrix:
+- Application Engineers:
+  - Feature branches: Full create, update, delete permissions.
+  - master: PR creation only, Squash and merge enforced, direct push blocked.
+  - release/vX.X: PR creation or cherry-pick PRs only, direct push blocked.
+  - v* tags: Push blocked.
+- Release Managers & Infrastructure SREs:
+  - v* tags: Authorized creators via GitHub Teams bypass actor rule.
+  - Emergency hotfixes: Bypass status checks under two-person sign-off policy.
+```
+
+By defining bypass actors at the GitHub Organization team level (e.g., `@enterprise-org/infra-sre` and `@enterprise-org/release-leads`), permission management is decoupled from individual user accounts. When an engineer changes roles or joins on-call, updating their team membership immediately updates their pipeline authorization.
+
+## Operational Results and Impact
+
+Adopting strict trunk-based rulesets transformed the day-to-day release process:
+- **Zero Merge Hell**: Feature branches live for less than 48 hours. Merge conflicts are small and resolved in minutes rather than days.
+- **Predictable Production Deployments**: Production release tags are mathematically verified against UAT release branches, eliminating unverified code in production.
+- **Bisectable Master History**: Because every commit on `master` is a squashed, passing unit, running `git bisect` to locate when a regression was introduced takes seconds.
+- **Complete Audit Trail**: Compliance auditors can trace any production tag (`v1.4.0`) directly to its UAT release branch (`release/v1.4`), back to the squashed pull requests on `master`, and down to the specific Jira tickets and peer reviews.
+
+Trunk-based development is not just a branching preference; it is an engineering discipline. Backing that discipline with modern GitHub Rulesets and automated ancestry verification makes safe, high-velocity delivery the default path.

@@ -73,6 +73,7 @@ function createImage({ alt, src, ...props }: MediaProps & { src: string }) {
       sizes="(max-width: 960px) 100vw, 960px"
       alt={alt}
       src={src}
+      objectFit="contain"
       {...props}
     />
   );
