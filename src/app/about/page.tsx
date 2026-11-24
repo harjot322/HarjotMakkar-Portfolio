@@ -1,6 +1,9 @@
+import fs from "fs";
+import path from "path";
 import {
   Avatar,
   Button,
+  Card,
   Column,
   Heading,
   Icon,
@@ -45,6 +48,11 @@ export default function About() {
       title: about.studies.title,
       display: about.studies.display,
       items: about.studies.institutions.map((institution) => institution.name),
+    },
+    {
+      title: about.certificates?.title || "Certifications",
+      display: !!about.certificates?.display,
+      items: about.certificates?.entries.map((cert) => cert.title) || [],
     },
     {
       title: about.technical.title,
@@ -281,6 +289,130 @@ export default function About() {
                     </Text>
                   </Column>
                 ))}
+              </Column>
+            </>
+          )}
+
+          {about.certificates && about.certificates.display && (
+            <>
+              <Heading
+                as="h2"
+                id={about.certificates.title}
+                variant="display-strong-s"
+                marginBottom="40"
+              >
+                {about.certificates.title}
+              </Heading>
+              <Column fillWidth gap="16" marginBottom="40">
+                {about.certificates.entries.map((cert, index) => {
+                  const hasImage = cert.image
+                    ? fs.existsSync(
+                        path.join(
+                          process.cwd(),
+                          "public",
+                          cert.image.startsWith("/") ? cert.image.slice(1) : cert.image,
+                        ),
+                      )
+                    : false;
+
+                  return (
+                    <Card
+                      key={`${cert.title}-${index}`}
+                      fillWidth
+                      padding="24"
+                      radius="l"
+                      background="surface"
+                      border="neutral-alpha-weak"
+                    >
+                      <Row
+                        fillWidth
+                        gap="20"
+                        vertical="center"
+                        s={{ direction: "column", align: "start" }}
+                      >
+                        {hasImage && cert.image ? (
+                          <Row
+                            minWidth="64"
+                            maxWidth="64"
+                            height="64"
+                            radius="m"
+                            overflow="hidden"
+                            vertical="center"
+                            horizontal="center"
+                          >
+                            <Media
+                              enlarge
+                              src={cert.image}
+                              alt={cert.title}
+                              aspectRatio="1"
+                              objectFit="contain"
+                            />
+                          </Row>
+                        ) : cert.icon ? (
+                          <Row
+                            minWidth="56"
+                            height="56"
+                            radius="m"
+                            background="neutral-alpha-weak"
+                            border="neutral-alpha-medium"
+                            vertical="center"
+                            horizontal="center"
+                          >
+                            <Icon name={cert.icon} size="l" onBackground="brand-strong" />
+                          </Row>
+                        ) : null}
+                        <Column fillWidth gap="4">
+                          <Row fillWidth horizontal="between" vertical="center" wrap>
+                            <Text id={cert.title} variant="heading-strong-m">
+                              {cert.title}
+                            </Text>
+                            {cert.timeframe && (
+                              <Text variant="label-default-s" onBackground="neutral-weak">
+                                {cert.timeframe}
+                              </Text>
+                            )}
+                          </Row>
+                          <Text variant="body-default-s" onBackground="brand-weak">
+                            {cert.issuer}
+                          </Text>
+                          {cert.description && (
+                            <Text variant="body-default-xs" onBackground="neutral-weak" marginTop="4">
+                              {cert.description}
+                            </Text>
+                          )}
+                          {cert.credentialId && (
+                            <Text variant="code-default-xs" onBackground="neutral-weak" marginTop="4">
+                              Credential ID: {cert.credentialId}
+                            </Text>
+                          )}
+                          {cert.skills && cert.skills.length > 0 && (
+                            <Row wrap gap="8" paddingTop="8">
+                              {cert.skills.map((skill, sIdx) => (
+                                <Tag key={sIdx} size="s">
+                                  {skill}
+                                </Tag>
+                              ))}
+                            </Row>
+                          )}
+                        </Column>
+                        {cert.link && (
+                          <Row s={{ width: "100%" }} horizontal="end">
+                            <Button
+                              href={cert.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              size="s"
+                              variant="secondary"
+                              suffixIcon="arrowUpRight"
+                            >
+                              Verify
+                            </Button>
+                          </Row>
+                        )}
+                      </Row>
+                    </Card>
+                  );
+                })}
               </Column>
             </>
           )}

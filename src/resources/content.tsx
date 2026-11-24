@@ -260,6 +260,96 @@ const about: About = {
       },
     ],
   },
+  certificates: {
+    display: true, // Master toggle: set to false to completely remove from profile and Table of Contents
+    title: "Certifications & Credentials",
+    entries: [
+      {
+        title: "Certified Kubernetes Administrator (CKA)",
+        issuer: "Cloud Native Computing Foundation (CNCF) / The Linux Foundation",
+        timeframe: "Target / In Progress",
+        credentialId: "LF-CKA-PENDING",
+        link: "https://www.credly.com",
+        icon: "kubernetes",
+        image: "/images/certificates/cka.png",
+        skills: [
+          "Cluster Architecture",
+          "Workloads & Scheduling",
+          "Services & Networking",
+          "Storage & Security",
+          "Troubleshooting",
+        ],
+        description: (
+          <>
+            Demonstrates core competency in Kubernetes administration, cluster architecture, storage configuration, networking, and production-grade troubleshooting.
+          </>
+        ),
+      },
+      {
+        title: "HashiCorp Certified: Terraform Associate (003)",
+        issuer: "HashiCorp",
+        timeframe: "Target / In Progress",
+        credentialId: "HASHI-TA-PENDING",
+        link: "https://www.credly.com",
+        icon: "terraform",
+        image: "/images/certificates/terraform.png",
+        skills: [
+          "Infrastructure as Code (IaC)",
+          "HCL Syntax",
+          "Terraform Modules",
+          "State Management",
+          "Terraform Cloud / Enterprise",
+        ],
+        description: (
+          <>
+            Validates foundational and advanced Infrastructure as Code (IaC) principles, module design, state locking, and multi-cloud provisioning workflows with Terraform.
+          </>
+        ),
+      },
+      {
+        title: "AWS Certified DevOps Engineer - Professional (DOP-C02)",
+        issuer: "Amazon Web Services (AWS)",
+        timeframe: "Target / In Progress",
+        credentialId: "AWS-DOP-PENDING",
+        link: "https://www.credly.com",
+        icon: "aws",
+        image: "/images/certificates/aws-devops.png",
+        skills: [
+          "SDLC Automation",
+          "Configuration Management",
+          "Monitoring & Logging",
+          "Incident & Event Response",
+          "High Availability & DR",
+        ],
+        description: (
+          <>
+            Validates technical expertise in provisioning, operating, and managing distributed application systems on AWS with strict security controls and high availability.
+          </>
+        ),
+      },
+      {
+        title: "Microsoft Certified: DevOps Engineer Expert (AZ-400)",
+        issuer: "Microsoft",
+        timeframe: "Target / In Progress",
+        credentialId: "MS-AZ400-PENDING",
+        link: "https://learn.microsoft.com",
+        icon: "azure",
+        image: "/images/certificates/azure-devops.png",
+        skills: [
+          "Azure DevOps & GitHub Enterprise",
+          "Continuous Integration (CI)",
+          "Continuous Delivery (CD)",
+          "Dependency Management",
+          "Security & Compliance",
+        ],
+        description: (
+          <>
+            Demonstrates expert-level ability to design and implement DevOps strategies for build, release, testing, and feedback mechanisms across cloud infrastructures.
+          </>
+        ),
+      },
+    ],
+  },
 };
 
 const blog: Blog = {

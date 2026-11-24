@@ -1,0 +1,386 @@
+---
+title: "Automated OpenSearch Backup & Restore-Probe Verification Pipeline"
+publishedAt: "2025-04-15"
+summary: "Architected a two-tier OpenSearch disaster recovery ecosystem on Azure Kubernetes Service (AKS) combining full-namespace Azure Backup Vault infrastructure snapshots with incremental per-index Azure Blob snapshots, an automated restore-probe verification CronJob, and KQL-based Azure Monitor alerting."
+images:
+  - "/images/projects/opensearch-backup/opensearch-backup-architecture.svg"
+team:
+  - name: "Harjot Singh Makkar"
+    role: "Cloud SRE"
+    avatar: "/images/harjot.jpg"
+    linkedIn: "https://linkedin.com/in/harjotmakkar322"
+---
+
+## Executive Summary & Multi-Layered Architecture
+
+In mission-critical enterprise environments, OpenSearch clusters house petabytes of analytical telemetry, audit trails, and core application indices. When disaster strikes, standard backup routines that merely trigger a scheduled job and check for exit code 0 fail to guarantee business continuity.
+
+A backup job completing successfully only proves that the script started and exited without crashing. It provides zero mathematical certainty that snapshot shards are internally consistent, that storage blobs are uncorrupted, or that data can actually be restored into a functioning cluster under emergency conditions.
+
+To solve this, I designed, architected, and automated an end-to-end, two-tier OpenSearch disaster recovery and verification ecosystem running on **Azure Kubernetes Service (AKS)** managed via **FluxCD GitOps**.
+
+> **Companion Article**: For an architectural breakdown of why backup exit codes fail to guarantee recoverability, read [Why a Successful Backup Job Doesn't Prove Disaster Recovery](/blog/backup-job-success-not-disaster-recovery).
+
+---
+
+## Architectural Topography & System Design
+
+The platform protects OpenSearch across two complementary layers: combining full Kubernetes infrastructure snapshots with granular, per-index data snapshots, coupled with an automated daily restore-probe verification engine and proactive KQL alerting:
+
+<Media
+  src="/images/projects/opensearch-backup/opensearch-backup-architecture.svg"
+  alt="Two-Tier OpenSearch Disaster Recovery & Restore Verification Architecture"
+  aspectRatio="1600 / 900"
+  objectFit="contain"
+  enlarge
+  radius="m"
+/>
+
+### Two-Tier Disaster Recovery Overview
+
+- **Layer 1: Cluster-Level Architectural Backup (Azure Backup Vault)**
+  - **Scope**: Full AKS namespace protection covering StatefulSets, Deployments, ConfigMaps, Secrets, and Persistent Volume Claims (PVCs).
+  - **Target Storage**: Dedicated Azure Storage Account (`enterprisestoreprod01`) in an enterprise regulated cloud region.
+  - **Frequency & Retention**: Daily at 03:00 ET, retained for 30 days with Geo-Redundant Storage (GRS).
+  - **Primary Purpose**: Complete namespace restoration in the event of whole-cluster corruption, node pool loss, or disaster recovery re-provisioning.
+
+- **Layer 2: Granular Per-Index Data Backup (`repository-azure` Plugin)**
+  - **Scope**: Incremental, index-level OpenSearch snapshots written directly from cluster nodes into Azure Blob Storage (`opensearch-plugin-snapshots`).
+  - **Authentication**: Zero static credentials; SAS tokens injected into OpenSearch Keystore via pod `postStart` lifecycle hooks.
+  - **Frequency & Retention**: Daily at 02:00 ET, retained for 30 days via API-driven chain-safe pruning.
+  - **Primary Purpose**: Fine-grained, non-destructive recovery of individual indices, time-series partitions, or documents without cluster downtime.
+
+- **Layer 3: Automated Verification Layer (`opensearch-snapshot-verify`)**
+  - **Scope**: Scheduled Kubernetes CronJob executing 15 minutes after snapshot completion (02:15 ET).
+  - **Mechanism**: Restores an isolated verification probe index (`backup_probe_verify_<snapID>`), polls shard recovery until green, asserts document counts, and tears down the probe.
+  - **Primary Purpose**: Proves data readability and repository integrity every 24 hours, converting backup assumptions into verified recovery facts.
+
+- **Layer 4: Continuous Observability & Alerting (Azure Monitor KQL)**
+  - **Scope**: Azure Monitor Container Insights evaluating `KubeEvents` on a 5-minute sliding window.
+  - **Mechanism**: KQL query detects job execution failures (`BackoffLimitExceeded`, `DeadlineExceeded`, non-zero exit codes) and dispatches a single high-priority alert to SRE on-call engineers.
+
+---
+
+## Storage-Layer Defenses & Immutability Configuration
+
+Snapshot files stored in object storage are vulnerable to accidental deletion, script misconfigurations, or lifecycle rule collisions that can silently break incremental snapshot chains. To eliminate storage-level points of failure, the following immutable safeguards are enforced on the target storage account:
+
+- **Point-in-Time Restore (PITR) for Containers**: Enabled with a **29-day continuous rollback window**, allowing instant recovery of the snapshot container if repository metadata is compromised.
+- **Soft Delete for Blobs**: Configured with a **90-day retention window**, preventing permanent deletion of incremental data segments even if a delete command is issued.
+- **Soft Delete for Containers**: Configured with a **30-day retention buffer** to safeguard against accidental storage container removal.
+- **Geo-Redundant Storage (GRS)**: Asynchronous cross-region data replication ensures complete disaster resilience against regional cloud outages.
+- **Incremental Chain Integrity**: Storage-level safeguards guarantee that snapshot delta dependencies remain intact throughout rolling 30-day lifecycle windows.
+
+---
+
+## 1. Layer 1: Architectural Backup via Azure Backup Vault
+
+### Purpose & Scope
+While index snapshots preserve search data, they do not capture the surrounding Kubernetes topology. If an AKS cluster suffers control-plane failure, etcd corruption, or namespace deletion, operators must recreate StatefulSets, volume mounts, service accounts, and configurations before index data can be re-attached.
+
+Azure Backup Vault provides full-cluster, namespace-level disaster recovery:
+- Captures all Kubernetes objects across the `opensearch-cluster` namespace.
+- Takes volume snapshots across all active Persistent Volume Claims (PVCs) underlying OpenSearch master and data nodes.
+- Operates independently of OpenSearch internal API availability.
+
+### Backup Specifications
+- **Vault Configuration**: Azure Backup Vault (`enterprise-backup-vault-01`)
+- **Protected Resource**: `enterprise-prod-aks-01/opensearch-backup-prod`
+- **Cadence**: Daily at 03:00 ET (07:00 UTC)
+- **Retention Policy**: 30 Days (Rolling backup points)
+- **Storage Tier**: Geo-Redundant Storage (GRS)
+
+### Infrastructure Restore Workflow (Disaster Runway)
+
+In a catastrophic recovery scenario, the operational runway begins with an infrastructure restore before index recovery:
+
+1. **Select Recovery Point**: Navigate to Azure Backup Vault and select the target point-in-time snapshot.
+2. **Execute Namespace Restore**: Trigger Kubernetes Services Namespace Restore targeting the `opensearch-cluster` namespace.
+3. **Verify Volume Attachments**: Ensure PVCs bind to the restored storage disks and stateful pods transition to `Running`:
+```bash
+kubectl get pods,pvc -n opensearch-cluster -o wide
+```
+4. **Data Plane Re-Sync**: Once Kubernetes infrastructure is restored, operators inspect `/_cat/indices` and use Layer 2 repository snapshots to replay any delta changes that occurred after the infrastructure volume snapshot.
+
+---
+
+## 2. Layer 2: Granular Per-Index Snapshot Engine
+
+### End-to-End Implementation
+While Layer 1 provides a safety net for full cluster recreation, restoring multi-terabyte PVC volumes to recover a single corrupted index is inefficient and causes unnecessary service interruption. Layer 2 writes index-level snapshots directly to Azure Blob Storage using the official `repository-azure` plugin.
+
+#### 1. Automated Plugin Installation via FluxCD
+Rather than maintaining custom Docker images that introduce maintenance overhead, the plugin is installed across all OpenSearch pods (master, data, ingest, coordinating) at container startup using a FluxCD `HelmRelease` patch:
+
+```yaml
+# gitops-infra/clusters/prod/opensearch/helm-release.yaml
+spec:
+  values:
+    extraEnvVars:
+      - name: OPENSEARCH_PLUGINS
+        value: "repository-azure"
+```
+
+#### 2. Secure Keystore Credential Injection
+Storing cloud storage keys in plain-text environment variables or config files introduces critical security vulnerabilities. To maintain strict zero-trust credential hygiene:
+- The Kubernetes Secret `os-az-creds` is mounted into pods as a read-only volume (`/secrets/az`).
+- During pod startup, a `postStart` lifecycle hook executes `opensearch-keystore` commands to inject the Storage Account name and SAS token into an encrypted, in-memory keystore:
+
+```bash
+# Pod postStart lifecycle hook
+AZURE_ACCOUNT="$(cat /secrets/az/accountName)"
+AZURE_SAS="$(cat /secrets/az/sasToken)"
+
+echo -n "$AZURE_ACCOUNT" | $KEYS add --stdin azure.client.default.account || true
+echo -n "$AZURE_SAS" | $KEYS add --stdin azure.client.default.sas_token || true
+```
+
+#### 3. Sovereign Cloud Endpoint Override
+When running inside private sovereign or isolated cloud enclaves, the default public commercial blob storage endpoint (`*.blob.core.windows.net`) fails to resolve. To direct the plugin to the internal endpoint suffix without JVM flag hacking, `extraConfig` is patched in the Helm values:
+
+```yaml
+spec:
+  values:
+    extraConfig: |
+      azure:
+        client:
+          default:
+            endpoint_suffix: core.regulated-cloud.internal
+```
+
+#### 4. Snapshot Repository Registration
+Once all nodes load the plugin and keystore credentials, the primary repository `azure-repo` is registered via the OpenSearch REST API:
+
+```bash
+curl -X PUT "http://opensearch:9200/_snapshot/azure-repo" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "azure",
+    "settings": {
+      "container": "opensearch-plugin-snapshots",
+      "client": "default",
+      "location_mode": "primary_only",
+      "compress": true
+    }
+  }'
+```
+
+---
+
+## 3. The Backup & Verification CronJob Pipeline
+
+The backup architecture separates snapshot creation from snapshot verification into two synchronized CronJobs managed under GitOps.
+
+### Snapshot Execution Engine (`opensearch-backup-cron`)
+- **Schedule**: `0 6 * * *` (02:00 ET / 06:00 UTC)
+- **Container**: `curlimages/curl:8.4.0`
+- **Execution Script**:
+  1. Verifies that the dedicated `backup_probe` index exists (configured with 1 primary shard, 0 replicas).
+  2. Upserts a live timestamp document to ensure active index writes.
+  3. Executes a synchronous snapshot (`wait_for_completion=true`), explicitly excluding internal system indices (`.opensearch*`, `.plugins*`, `.kibana*`).
+  4. Executes API-only retention pruning: queries snapshots older than 30 days and removes them strictly via `DELETE _snapshot/azure-repo/<snap>`, preserving the underlying incremental blob chains.
+
+```bash
+#!/bin/sh
+set -eu
+
+OS_URL="http://opensearch:9200"
+REPO="azure-repo"
+RETENTION_SECONDS=2592000 # 30 Days
+SNAP="snap-$(date -u +%Y%m%d-%H%M%S)"
+PROBE_IDX="backup_probe"
+
+# 1. Ensure verification probe index exists
+if ! curl -fsI "$OS_URL/$PROBE_IDX"; then
+  curl -fsX PUT "$OS_URL/$PROBE_IDX" \
+    -H "Content-Type: application/json" \
+    -d '{"settings":{"number_of_shards":1,"number_of_replicas":0}}'
+fi
+
+# 2. Upsert timestamped verification record
+curl -fsX POST "$OS_URL/$PROBE_IDX/_update/1?refresh=true" \
+  -H "Content-Type: application/json" \
+  -d '{"doc":{"ts":"'"$(date -u +%FT%TZ)"'"},"doc_as_upsert":true}'
+
+# 3. Execute synchronous snapshot excluding system indices
+curl -fsX PUT "$OS_URL/_snapshot/$REPO/$SNAP?wait_for_completion=true" \
+  -H "Content-Type: application/json" \
+  -d '{"indices": "*,-.opensearch*,-.plugins-*,-.opendistro*,-.kibana*,-.opensearch-dashboards*","include_global_state":false}'
+
+# 4. Chain-Safe API-only Retention Pruning (>30 Days)
+curl -fs "$OS_URL/_cat/snapshots/$REPO?h=id,start_epoch" | \
+awk -v now=$(date -u +%s) -v keep=$RETENTION_SECONDS '{ if (now - $2 > keep) print $1 }' | \
+while read -r OLD_SNAP; do
+  curl -fsX DELETE "$OS_URL/_snapshot/$REPO/$OLD_SNAP"
+done
+```
+
+---
+
+## 4. Layer 3: Automated Restore-Probe Verification Engine
+
+### The Problem with Unverified Snapshots
+Most organizations stop at Step 3. As long as the backup CronJob exits with code 0, dashboards stay green.
+
+However, in distributed search engines like OpenSearch, an exit code 0 can occur even if individual shards failed to flush, if underlying cloud storage suffered transient write timeouts, or if index metadata was corrupted.
+
+### The Restore-Probe Solution (`opensearch-snapshot-verify`)
+- **Schedule**: `15 6 * * *` (02:15 ET / 06:15 UTC - offset 15 minutes after snapshot initiation)
+- **Container**: `alpine:latest` with `curl` and `bind-tools`
+
+#### Verification Sequence
+1. **Cluster Health & DNS Verification**: Confirms internal Kubernetes DNS resolution and cluster status via `/_cluster/health`.
+2. **Strict State Assertion**: Inspects the latest snapshot state via `curl -s "$OS_URL/_snapshot/$REPO/$LATEST"`. If the state is `PARTIAL`, `FAILED`, or `IN_PROGRESS`, the script immediately exits with an error.
+3. **Repository Connectivity Probe**: Calls `POST /_snapshot/azure-repo/_verify` across all nodes to ensure cloud container access is intact.
+4. **Isolated Restore Execution**: Restores the `backup_probe` index from the latest snapshot into an isolated throwaway index (`backup_probe_verify_<snapID>`):
+```bash
+curl -fs -X POST "$OS_URL/_snapshot/$REPO/$LATEST/_restore" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "indices": "backup_probe",
+    "rename_pattern": "^backup_probe$",
+    "rename_replacement": "backup_probe_verify_'"$LATEST"'",
+    "include_global_state": false,
+    "partial": false
+  }'
+```
+5. **Shard Recovery Validation**: Polls `/_cat/indices/backup_probe_verify_*` until the index achieves `green` status.
+6. **Data Integrity Check**: Executes a `/_count` query on the restored index, asserting that the document count is greater than or equal to 1.
+7. **Clean Teardown**: Deletes the throwaway test index via `DELETE /backup_probe_verify_*` and exits with code 0.
+8. **Failure Handling**: If any check fails, the pod terminates with an exit code of 1, triggering the Kubernetes job backoff limit and surfacing an alert to Azure Monitor.
+
+---
+
+## 5. Layer 4: Observability & Azure Monitor Alerting
+
+To guarantee zero manual operational overhead while avoiding alert fatigue, alerting is built on top of Azure Monitor Container Insights via Kusto Query Language (KQL).
+
+### Alert Rule Specifications
+- **Rule Name**: `opensearch-backup-failure[PROD]`
+- **Signal Type**: Container Insights Log Analytics
+- **Evaluation Cadence**: Every 5 minutes (over a 5-minute sliding window)
+- **Severity**: Critical (Sev 0)
+- **Suppression**: Fires once per incident to prevent alert flooding
+
+### Production KQL Alert Query
+The alert query monitors Kubernetes event logs for the verification Job lifecycle:
+
+```kusto
+KubeEvents
+| where TimeGenerated > ago(5m)
+| where ObjectKind == "Job"
+| where Namespace == "opensearch-cluster"
+| extend JobName = tostring(column_ifexists("ObjectName", column_ifexists("Name", "")))
+| where JobName startswith "opensearch-snapshot-verify"
+| where Reason in ("BackoffLimitExceeded", "Failed", "DeadlineExceeded", "Error")
+| project TimeGenerated, Namespace, Job=JobName, Reason, Message
+```
+
+When an alert triggers, an automated notification is dispatched to SRE on-call engineers containing the pod name, failure reason, and Kubernetes event message.
+
+---
+
+## 6. Deep Production Incident Postmortem: The Memory Crash & False-Positive Catch
+
+### Incident Summary
+After months of stable operation, on **August 13, 2026 at 06:00:07 UTC**, the nightly production snapshot job experienced an unexpected partial failure. Two primary production indices (`fileinfo_2` and `testlog_2`) failed to snapshot due to a sudden OpenSearch data node termination (`node shutdown`).
+
+Fifteen minutes later, the verification CronJob ran, reported `Completed`, and exited cleanly. This created a **false-positive recovery signal** that initially masked the failure from Azure Monitor.
+
+### Forensic Investigation & Diagnostic Evidence
+
+#### 1. Snapshot State Analysis
+Querying the failed snapshot (`snap-20260813-060002`) revealed:
+- **Total Shards**: 3
+- **Failed Shards**: 2 (`fileinfo_2` shard 0, `testlog_2` shard 0)
+- **Successful Shards**: 1 (`backup_probe`)
+- **Error Payload**: `"reason": "node shutdown"`, `"status": "INTERNAL_SERVER_ERROR"`
+
+#### 2. Pod Lifecycle Anomalies
+Inspecting pod status revealed that data pod `opensearch-data-2` had crashed and entered `CrashLoopBackOff` with 11 restarts. Running `kubectl logs opensearch-data-2 --previous` returned:
+`previous terminated container "opensearch" not found`
+The pod had been completely killed and recreated by Kubernetes with a restart count reset to 0.
+
+#### 3. Node Overcommitment Analysis
+Investigating the underlying virtual machine node (`aks-nodepool-vmss000008`) exposed severe resource contention:
+- **Node Physical Hardware**: 8 vCPU, ~32 GiB RAM (`27,589,236 KiB` allocatable capacity).
+- **Pod Density**: 35 active containers scheduled on the single node.
+- **Allocated CPU Limits**: **220%** of node capacity (`17,240m`).
+- **Allocated Memory Limits**: **125%** of node physical RAM (`35.4 GB` limits vs. `27.5 GB` allocatable).
+
+#### 4. The Telemetry Blindspot
+Querying `KubeEvents` for eviction messages during the incident window returned zero rows. Because the underlying node ran completely out of physical memory, the Linux kernel and kubelet briefly froze, terminating containers violently without flushing eviction events to the logging agent.
+
+### Root Cause Analysis
+
+1. **Off-Heap Lucene Memory Spike**: While OpenSearch JVM heap was capped at `2g`, Lucene leverages off-heap kernel page caches and native buffers during snapshot read operations. The concurrent reading of large index segments triggered a sharp memory spike beyond allocatable RAM.
+2. **Kernel OOM Killer Invocation**: Because the node was overcommitted to 125% memory, the kernel OOM killer terminated the OpenSearch process immediately (`node shutdown`).
+3. **The False-Positive Blindspot**: The original verification script only checked whether the `backup_probe` index could be restored. Because `backup_probe` was the very first index processed, its single shard landed in the snapshot before the data node crashed. When the verify script restored `backup_probe`, it found 1 document and reported success, completely blind to the fact that the two multi-gigabyte production indices had failed.
+
+### Permanent Engineering Hardening & Resolution
+
+To prevent recurrence, four permanent architectural improvements were deployed:
+
+1. **Strict Shard-Level Snapshot Assertion**:
+   The verification script was upgraded to inspect the aggregate snapshot state. It now queries `curl -s "$OS_URL/_snapshot/$REPO/$LATEST" | jq -r '.snapshots[0].state'` and immediately aborts if the state is anything other than `SUCCESS`, catching all `PARTIAL` failures before any probe restore runs.
+2. **Snapshot Bandwidth Throttling**:
+   To eliminate aggressive off-heap memory spikes during segment reads, snapshot bandwidth was throttled on the repository:
+   ```bash
+   POST /_snapshot/azure-repo
+   {
+     "type": "azure",
+     "settings": {
+       "max_snapshot_bytes_per_sec": "40mb"
+     }
+   }
+   ```
+3. **Elimination of Node Overcommitment**:
+   OpenSearch data nodes were moved to dedicated node pools with pod memory limits capped at 85% of total allocatable host RAM, preventing multi-tenant eviction cascades.
+4. **Post-Fix Verification**:
+   On August 14, 2026, the snapshot job completed cleanly with state `SUCCESS` across all shards, and the verification CronJob completed its restore probe with 100% data fidelity.
+
+---
+
+## 7. SRE Operational Runbook & Recovery Playbook
+
+### Non-Destructive Manual Index Recovery
+When restoring data to investigate an operational issue or recover an accidentally deleted index, operators must never overwrite active production indices. The following non-destructive rename restore pattern is standard procedure:
+
+```bash
+# Restore specific index with non-destructive prefix
+curl -X POST "http://opensearch:9200/_snapshot/azure-repo/snap-<id>/_restore" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "indices": "target_index",
+    "include_global_state": false,
+    "rename_pattern": "^(.*)$",
+    "rename_replacement": "restored_$1"
+  }'
+
+# Monitor recovery progress
+curl -s "http://opensearch:9200/_cat/recovery?v"
+
+# Validate document count against live index
+curl -s "http://opensearch:9200/restored_target_index/_count?pretty"
+```
+
+### Zero-Impact Snapshot Verification Techniques
+
+- **Shard-Level Inspection**: Inspect raw shard metadata via `curl -s http://localhost:9200/_snapshot/azure-repo/<snap-id> | jq .` to verify that `"shards.failed": 0` and that all expected index partitions exist.
+- **Isolated Dry-Run Validation**: Restore a production partition to a temporary name (`dryrun_verify_$1`), assert document parity, and delete the temporary index.
+- **Out-of-Band Staging Cluster Replay**: Register the production Azure Blob Storage container on a staging cluster with `"readonly": true` to execute end-to-end recovery rehearsals without placing query or I/O load on the live production cluster.
+
+---
+
+## Tangible Business & Engineering Outcomes
+
+- **Zero-Touch Backup Reliability**: Reduced daily backup management overhead to zero hours; the system runs, verifies, and alerts autonomously.
+- **Guaranteed Recovery Time (RTO)**: Full-namespace infrastructure recovery under **45 minutes** via Azure Backup Vault; granular single-index restore under **5 minutes** via `repository-azure`.
+- **Elimination of Silent Failures**: The restore-probe verification CronJob eliminated the industry-standard false-positive blindspot where corrupted snapshots go unnoticed until disaster strikes.
+- **Regulatory & Compliance Defense**: Multi-tier storage defenses (29-day PITR, 90-day blob soft delete, 30-day container soft delete, GRS geo-redundancy) fully meet stringent federal and enterprise audit standards.
+
+---
+
+## Technology Tags
+
+OpenSearch · Kubernetes (AKS) · FluxCD GitOps · Azure Backup Vault · Azure Blob Storage · Disaster Recovery · Site Reliability Engineering · KQL · Shell Scripting · DevSecOps

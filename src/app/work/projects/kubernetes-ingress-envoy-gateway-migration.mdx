@@ -252,7 +252,7 @@ Developers reported that file uploads (`FileUploadDialog.vue` PUT requests) cont
 
 By inspecting browser network traces, I isolated the issue:
 - File uploads did **not** route through Envoy Gateway.
-- Clients obtained a short-lived Shared Access Signature (SAS) token and uploaded files directly to Azure Government Blob Storage (`https://<storage-account>.blob.core.usgovcloudapi.net`).
+- Clients obtained a short-lived Shared Access Signature (SAS) token and uploaded files directly to cloud blob storage (`https://<storage-account>.blob.core.regulated-cloud.internal`).
 - The storage account's Blob service had an exact-match protocol mismatch: it had been configured for `https://localhost:5173` instead of `http://localhost:5173`.
 
 Correcting the protocol on the Azure storage account resolved the upload failures without weakening Envoy edge policies.

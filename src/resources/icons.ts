@@ -12,6 +12,7 @@ import {
   HiOutlineDocument,
   HiOutlineGlobeAsiaAustralia,
   HiOutlineRocketLaunch,
+  HiOutlineCheckBadge,
 } from "react-icons/hi2";
 
 import {
@@ -22,7 +23,14 @@ import {
   PiImageDuotone,
 } from "react-icons/pi";
 
-import { SiJavascript, SiNextdotjs, SiFigma, SiSupabase } from "react-icons/si";
+import {
+  SiJavascript,
+  SiNextdotjs,
+  SiFigma,
+  SiSupabase,
+  SiKubernetes,
+  SiTerraform,
+} from "react-icons/si";
 
 import {
   FaDiscord,
@@ -37,7 +45,10 @@ import {
   FaWhatsapp,
   FaReddit,
   FaTelegram,
+  FaAws,
 } from "react-icons/fa6";
+
+import { VscAzure } from "react-icons/vsc";
 
 export const iconLibrary = {
   arrowUpRight: HiArrowUpRight,
@@ -72,6 +83,11 @@ export const iconLibrary = {
   reddit: FaReddit,
   telegram: FaTelegram,
   instagram: FaInstagram,
+  kubernetes: SiKubernetes,
+  terraform: SiTerraform,
+  aws: FaAws,
+  azure: VscAzure,
+  badge: HiOutlineCheckBadge,
 } satisfies Record<string, IconType>;
 
 export type IconLibrary = typeof iconLibrary;

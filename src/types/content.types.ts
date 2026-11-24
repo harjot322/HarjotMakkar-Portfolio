@@ -217,6 +217,39 @@ export interface About extends BasePageConfig {
       }>;
     }>;
   };
+  /** Certifications and credentials section */
+  certificates?: {
+    /** Master switch to display or hide the entire certifications section */
+    display: boolean;
+    /** Section title */
+    title: string;
+    /** List of certifications */
+    entries: CertificateEntry[];
+  };
+}
+
+/**
+ * Individual certification credential.
+ */
+export interface CertificateEntry {
+  /** Certification title (e.g. "Certified Kubernetes Administrator (CKA)") */
+  title: string;
+  /** Issuing organization (e.g. "The Linux Foundation / CNCF") */
+  issuer: string;
+  /** Timeframe or date of issuance (e.g. "2025 - 2028") */
+  timeframe?: string;
+  /** Credential ID or verification code */
+  credentialId?: string;
+  /** Verification URL (e.g. Credly or official certification registry link) */
+  link?: string;
+  /** Technology icon name from iconLibrary */
+  icon?: IconName;
+  /** Optional badge or certificate image path (relative to /public) */
+  image?: string;
+  /** Key skills / verified competencies */
+  skills?: string[];
+  /** Short description of syllabus or verified capabilities */
+  description?: React.ReactNode;
 }
 
 /**

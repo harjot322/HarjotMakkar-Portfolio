@@ -105,22 +105,42 @@ F. Case Study 5: ATS Certify - Modular Resume Engineering & AI Evaluation Archit
      `/images/projects/ats-certify/workflow.svg` (scan & scoring workflow pipeline),
      `/images/projects/ats-certify/phases.svg` (5-stage incremental production rollout).
 
+
+G. Case Study 6: Automated OpenSearch Backup & Restore-Probe Verification Pipeline
+   - File: `src/app/work/projects/opensearch-automated-backup-verification-pipeline.mdx`
+   - URL: http://localhost:3000/work/opensearch-automated-backup-verification-pipeline
+   - Scope: Two-tier disaster recovery architecture on AKS combining Azure Backup Vault namespace/PVC
+     infrastructure snapshots with granular incremental per-index snapshots (`repository-azure` plugin),
+     FluxCD GitOps automation, automated restore-probe verification (`opensearch-snapshot-verify`), and
+     KQL-driven Azure Monitor alerting.
+   - Highlights: Pod keystore SAS token injection via postStart hook, sovereign/US Gov endpoint override,
+     30-day API-driven snapshot pruning (never deleting raw blobs), automated 7-step probe restore sequence,
+     deep production incident postmortem (August 13 node memory exhaustion, Lucene off-heap read spikes,
+     eviction telemetry blindspots, and verify false-positive remediation), bandwidth throttling, and
+     non-destructive recovery runbooks.
+   - Cross-Link: Connected to companion philosophy post `backup-job-success-not-disaster-recovery.mdx`.
+   - Visuals: `/images/projects/opensearch-backup/opensearch-backup-architecture.svg` (custom 4-layer architecture diagram).
+
 --------------------------------------------------------------------------------
 3. WHAT IS CURRENTLY HAPPENING (ACTIVE STATE)
 --------------------------------------------------------------------------------
-- ALL FIVE Case Studies (1, 2, 3, 4, and 5) are 100% written, type-checked, and sanitized.
+- ALL SIX Case Studies (1, 2, 3, 4, 5, and 6) are 100% written, type-checked, and sanitized.
 - Repaired Case Study #3 (`cloud-inventory-automation-400-accounts.mdx`):
   - Removed unrendered `mermaid` / `sequenceDiagram` block and replaced with clean structured step sequence.
   - Replaced ASCII waste categories box with clean structured metric callouts.
+  - Embedded custom Excalidraw SVG `zero-trust-auth-flow.svg` (`aspectRatio="2362.77 / 1049.41"`).
   - Entire repository confirmed 100% clean of raw mermaid blocks, ASCII boxes, and pipe tables.
-- All diagrams and images across all 5 case studies are rendered unboxed, borderless, and seamless (matching the ATS Certify layout style):
+- All diagrams and images across all 6 case studies are rendered unboxed, borderless, and seamless:
   - Hardcoded border="neutral-alpha-medium" removed from MDX image renderer in `src/components/mdx.tsx`.
-  - All diagrams use `<Media ... />` without border props and exact viewBox aspect ratios to eliminate letterbox bands:
+  - All diagrams use `<Media ... />` without border props and exact viewBox aspect ratios:
     - AKS Cutover: `/images/projects/zero-downtime-kubernetes-platform-cutover/AKS_cutover.svg` (`aspectRatio="1727.85 / 842.12"`)
     - Envoy Gateway: `/images/projects/ingress-to-envoy-migration/Envoy.svg` (`aspectRatio="3541.55 / 1368.96"`)
     - 400 AWS Accounts: `/images/projects/AWS400accounts/400awsaccounts.svg` (`aspectRatio="2295.45 / 1446.18"`), `/images/projects/AWS400accounts/zero-trust-auth-flow.svg` (`aspectRatio="2362.77 / 1049.41"`)
     - Storage Optimization: `/images/projects/storage-optimization/storage-migration-azcopy-batch-pipeline.svg` (`aspectRatio="1800.63 / 753.37"`)
     - ATS Certify: `/images/projects/ats-certify/ats-certify-architecture.svg` (`aspectRatio="3792.61 / 943.56"`), `workflow.svg` (`aspectRatio="1890.42 / 607.15"`), `phases.svg` (`aspectRatio="1152.61 / 770.35"`)
+    - OpenSearch Backup: `/images/projects/opensearch-backup/opensearch-backup-architecture.svg` (`aspectRatio="1600 / 900"`)
+- Toggleable Certifications System added to About page (`about.certificates.display: true/false`).
+- Gallery route disabled from navbar (`/gallery: false`) and route-guarded.
 - Zero elongated dashes across all newly created/modified files.
 - Zero client/employer proprietary names (strict NDA sanitization).
 - Dev server runs on port 3000.
@@ -128,14 +148,9 @@ F. Case Study 5: ATS Certify - Modular Resume Engineering & AI Evaluation Archit
 --------------------------------------------------------------------------------
 4. WHAT TO DO NEXT
 --------------------------------------------------------------------------------
-STEP 1: Await user feedback on Case Study #5 (`ats-certify-resume-engineering-platform.mdx`).
-        Apply any refinements or adjustments requested.
-
-STEP 2: Polish Additional Portfolio Elements (as requested by user):
-        - Decide whether to hide `/gallery` in `src/resources/once-ui.config.ts` if the
-          user does not want template stock photos.
-        - Add technical skill badges / micro-icons in `src/resources/content.tsx`.
-        - Review blog posts in `src/app/blog/posts/` for formatting and dash cleanliness.
-        - Run `npx tsc --noEmit` and check for elongated dashes before committing and pushing.
+STEP 1: Review Case Study #6 and the Certifications display with the user.
+STEP 2: Polish the 3 Blog Posts in `src/app/blog/posts/` (concise, high-signal, production-tested).
+STEP 3: Technical stack badges, micro-icons, SEO OpenGraph banners, and mobile responsiveness audit.
+STEP 4: Final commit and push to `origin/master`.
 
 ================================================================================
