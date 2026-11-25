@@ -11,5 +11,11 @@
   "build": {
     "command": "node scripts/copy-ssg-assets.js"
   },
-  "previews": {}
+  "previews": {},
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true
+    }
+  }
 }
