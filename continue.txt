@@ -1,8 +1,8 @@
 ================================================================================
 PROJECT STATUS & HANDOVER BRIEF (CONTINUE FILE)
-Generated: 2026-11-24 20:30 IST
+Generated: 2026-11-25 13:40 IST
 Repository: https://github.com/harjot322/HarjotMakkar-Portfolio
-Active Branch: future (branched off committed master @ bd747db)
+Active Branch: site-polish-audit (branched off future @ f2a515d)
 Default Branch: master (synced with main)
 Owner: Harjot Singh Makkar (harjotdesk@gmail.com)
 Local Working Directory: /Users/harjotmakkar/Agentic/MyWebsite
@@ -142,37 +142,37 @@ C. System & UX Enhancements Added Today:
 --------------------------------------------------------------------------------
 3. CURRENT REPOSITORY HEALTH & STATS
 --------------------------------------------------------------------------------
-- Git Status: All files modified cleanly on branch `future`.
+- Git Status: On dedicated branch `site-polish-audit`.
 - Static Pre-Rendered Routes: 30 / 30 routes (`npx next build --webpack` exits 0).
 - TypeScript: `npx tsc --noEmit` exits 0 with zero errors.
 - Elongated Dash Audit: Zero em-dashes and en-dashes (`grep -rnE '—|–' src/` exits 0).
+- Cross-Link Audit: 100% verified (7/7 bidirectional links valid, 0 broken).
+- OpenGraph Audit: Zero-external-dependency base64 OG image pipeline with 1200x630 canvas.
+- Mobile Audit: Responsive padding, title balance, and badge wrap across all viewport sizes.
 - NDA Compliance: 100% clean of proprietary names, client domains, or internal hostnames.
 
 --------------------------------------------------------------------------------
-4. IN THE BUCKET FOR TOMORROW (NEXT STEPS)
+4. COMPLETED IN TODAY'S SESSION (SITE POLISH & PRODUCTION AUDIT)
 --------------------------------------------------------------------------------
+- Tech Stack Badges:
+  - Added structured `tags` array to frontmatter of all 6 case studies and 6 companion blog posts.
+  - Implemented `<Badge effect={false}>{tag}</Badge>` pill clusters in case study and blog headers.
+  - Extended `ProjectCard` and `Post` to display tech badges on `/work` and `/blog` index grids.
+- OpenGraph Dynamic Social Previews:
+  - Upgraded `/api/og/generate` to standard 1200x630 (1.91:1) dimensions for Twitter/LinkedIn.
+  - Embedded local author avatar directly via Base64 Data URI from disk, eliminating network dependencies.
+  - Implemented safe font loading with fallback to system sans-serif to prevent 500 crashes.
+  - Added SVG detection in `generateMetadata` so articles with SVG covers gracefully use the OG generator.
+- Mobile / Responsive Breakpoint Audit:
+  - Added `paddingX="16"` and `fillWidth` to article and section wrappers to eliminate mobile edge clipping.
+  - Applied `wrap="balance"` and `align="center"` to article headings to prevent long titles from overflowing.
+- End-to-End Cross-Link Verification:
+  - Added bidirectional cross-links connecting all companion case studies and deep-dive blog posts.
+  - Ran automated validation script verifying 100% of internal links resolve to valid slugs.
 
-ITEM 1: Excalidraw Diagram Drop-Ins (User Discretion)
-- If user wants hand-drawn versions for any of the 5 blog diagrams, they can export
-  SVGs (16:9, e.g. 1600x900) directly into `public/images/blog/`:
-  - `cross-account-iam-role-assumption.svg`
-  - `backup-vs-restore-probe-flow.svg`
-  - `ingress-traffic-migration-flow.svg`
-  - `github-rulesets-trunk-based-flow.svg`
-  - `wiz-pipeline-scan-architecture.svg`
-
-ITEM 2: Option C (Site Polish & Production Audit)
-- Technical Stack Badges: Add clean technology pills to case study and blog headers
-  (e.g., Kubernetes, Envoy Gateway, OpenSearch, GitHub Actions, AWS STS, FluxCD).
-- OpenGraph Dynamic Social Previews: Audit `/api/og/generate` to verify rich social
-  share cards render properly across Twitter and LinkedIn.
-- Mobile / Responsive Breakpoint Audit: Verify padding, hero headings, and navigation
-  on mobile and tablet viewport widths.
-- End-to-End Link Verification: Test all cross-links between case studies and companion
-  blogs to guarantee 0 broken links.
-
-ITEM 3: Git Checkpoint & Deployment
-- Stage and commit all work on branch `future`:
-  `git add -A && git commit -m "feat: complete 6 case studies and 6 companion blogs with circular recommendations"`
-- Merge into `master` or push to remote when ready.
+--------------------------------------------------------------------------------
+5. NEXT STEPS (READY FOR REVIEW & MERGE)
+--------------------------------------------------------------------------------
+- Review changes on `site-polish-audit`.
+- Merge into `future` / `master` and deploy when ready.
 ================================================================================

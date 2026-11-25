@@ -4,6 +4,12 @@ publishedAt: "2025-05-01"
 summary: "Executed an end-to-end migration from legacy ingress-nginx to Envoy Gateway v1.7.0 using FluxCD GitOps, Gateway API, and Envoy extension CRDs, overcoming Azure Policy Gatekeeper constraints, edge CORS challenges, and 512k header buffer requirements with zero downtime."
 images:
   - "/images/projects/ingress-to-envoy-migration/Envoy.svg"
+tags:
+  - "Envoy Gateway"
+  - "Gateway API"
+  - "Kubernetes"
+  - "Helm"
+  - "Traffic Engineering"
 team:
   - name: "Harjot Singh Makkar"
     role: "Cloud SRE"
@@ -123,7 +129,7 @@ By analyzing the node-level runtime security posture, I verified this warning wa
 ## 3. Translating NGINX Annotations to Gateway API & Envoy CRDs
 
 ### Microservice Route Cutover (HTTPRoute)
-Legacy ingress configurations embedded inside individual Helm charts (`ite-bff`, `ite-context`, `grafana`, `schema-registry`, etc.) were disabled. Each was translated into a declarative `HTTPRoute` manifest targeting `ite-gateway`:
+Legacy ingress configurations embedded inside individual Helm charts (`ite-bff`, `ite-context`, `grafana`, `schema-registry`, etc.) were disabled. Each was translated into a declarative `HTTPRoute` manifest targeting `ite-gateway`. (For a companion conceptual walkthrough on weighted canary traffic splitting and dual-controller coexistence during this transition, read [Kubernetes Ingress Migration: Moving to Envoy Gateway Without Dropping Requests](/blog/kubernetes-ingress-migration-pattern)):
 
 ```yaml
 apiVersion: gateway.networking.k8s.io/v1

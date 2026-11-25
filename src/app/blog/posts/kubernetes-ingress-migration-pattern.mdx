@@ -3,6 +3,12 @@ title: "Kubernetes Ingress Migration: Moving to Envoy Gateway Without Dropping R
 publishedAt: "2025-04-10"
 summary: "Replacing an ingress controller in a live Kubernetes cluster is high-risk if executed as a hard cutover. Here is an architectural pattern for migrating traffic safely using parallel routing, Gateway API, and weighted canary validation."
 image: "/images/blog/ingress-traffic-migration-flow.svg"
+tags:
+  - "Kubernetes"
+  - "Envoy Gateway"
+  - "Gateway API"
+  - "NGINX Ingress"
+  - "Canary Deployment"
 ---
 
 ## The Hard Cutover Fallacy

@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, Column, Media, Row, Avatar, Text } from "@once-ui-system/core";
+import { Card, Column, Media, Row, Avatar, Text, Badge } from "@once-ui-system/core";
 import { formatDate } from "@/utils/formatDate";
 import { person } from "@/resources";
 
@@ -12,6 +12,7 @@ interface PostProps {
       publishedAt: string;
       image?: string;
       tag?: string;
+      tags?: string[];
       aspectRatio?: string;
     };
   };
@@ -67,11 +68,19 @@ export default function Post({ post, thumbnail, direction }: PostProps) {
           <Text variant="heading-strong-l" wrap="balance">
             {post.metadata.title}
           </Text>
-          {post.metadata.tag && (
+          {post.metadata.tags && post.metadata.tags.length > 0 ? (
+            <Row gap="8" wrap>
+              {post.metadata.tags.slice(0, 3).map((tag) => (
+                <Badge key={tag} effect={false}>
+                  {tag}
+                </Badge>
+              ))}
+            </Row>
+          ) : post.metadata.tag ? (
             <Text variant="label-strong-s" onBackground="neutral-weak">
               {post.metadata.tag}
             </Text>
-          )}
+          ) : null}
         </Column>
       </Row>
     </Card>
