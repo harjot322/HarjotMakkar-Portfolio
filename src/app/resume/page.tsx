@@ -184,8 +184,8 @@ export default function Resume() {
             skills: "Python · Bash · YAML · Go (familiarity) · React · Node.js",
           },
         ].map(({ category, skills }) => (
-          <Text key={category} variant="body-default-m" style={{ lineHeight: "175%" }}>
-            <Text as="span" variant="heading-strong-s">
+          <Text key={category} variant="body-default-l" style={{ lineHeight: "175%" }}>
+            <Text as="span" variant="heading-strong-m">
               {category}:
             </Text>{" "}
             <Text as="span" onBackground="neutral-weak">
