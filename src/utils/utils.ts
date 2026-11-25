@@ -79,10 +79,11 @@ export function getImageAspectRatio(imgPath: string): string | undefined {
 }
 
 import { notFound } from "next/navigation";
+import prebuiltPosts from "@/resources/posts-data.json";
 
 function getMDXFiles(dir: string) {
   if (!fs.existsSync(dir)) {
-    notFound();
+    return [];
   }
 
   return fs.readdirSync(dir).filter((file) => path.extname(file) === ".mdx");
@@ -90,7 +91,7 @@ function getMDXFiles(dir: string) {
 
 function readMDXFile(filePath: string) {
   if (!fs.existsSync(filePath)) {
-    notFound();
+    return null;
   }
 
   const rawContent = fs.readFileSync(filePath, "utf-8");
@@ -128,21 +129,37 @@ function readMDXFile(filePath: string) {
 
 function getMDXData(dir: string) {
   const mdxFiles = getMDXFiles(dir);
-  return mdxFiles.map((file) => {
-    const { metadata, content } = readMDXFile(path.join(dir, file));
-    const slug = path.basename(file, path.extname(file));
+  return mdxFiles
+    .map((file) => {
+      const parsed = readMDXFile(path.join(dir, file));
+      if (!parsed) return null;
+      const slug = path.basename(file, path.extname(file));
 
-    return {
-      metadata,
-      slug,
-      content,
-    };
-  });
+      return {
+        metadata: parsed.metadata,
+        slug,
+        content: parsed.content,
+      };
+    })
+    .filter((item): item is { metadata: Metadata; slug: string; content: string } => item !== null);
 }
 
 export function getPosts(customPath = ["", "", "", ""]) {
-  // Posts are read at build time. The ignore comment keeps Next from tracing
-  // the whole project (images and video included) into every server function.
-  const postsDir = path.join(/* turbopackIgnore: true */ process.cwd(), ...customPath);
-  return getMDXData(postsDir);
+  const pathStr = customPath.join("/");
+  const isWork = pathStr.includes("work");
+  const isBlog = pathStr.includes("blog");
+
+  try {
+    const postsDir = path.join(process.cwd(), ...customPath);
+    if (fs.existsSync(postsDir)) {
+      const live = getMDXData(postsDir);
+      if (live && live.length > 0) return live;
+    }
+  } catch {
+    // fallback to prebuilt bundle in serverless / edge environments
+  }
+
+  if (isWork) return prebuiltPosts.projects as unknown as Array<{ metadata: Metadata; slug: string; content: string }>;
+  if (isBlog) return prebuiltPosts.posts as unknown as Array<{ metadata: Metadata; slug: string; content: string }>;
+  return [];
 }
