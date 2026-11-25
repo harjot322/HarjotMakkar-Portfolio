@@ -1,70 +1,70 @@
-# Harjot Singh Makkar - Portfolio
+# Harjot Singh Makkar - Infrastructure Engineering Portfolio
 
-Personal portfolio and technical writing site for **Harjot Singh Makkar**, Cloud SRE & Infrastructure Engineer.
+Production portfolio and technical architecture writing for Harjot Singh Makkar, Cloud SRE and Infrastructure Engineer.
 
-Built with [Once UI](https://once-ui.com) for Next.js (magic-portfolio template).
+- Live site: https://harjotmakkar.dev
+- Repository: https://github.com/harjot322/HarjotMakkar-Portfolio
 
-## Tech Stack
+## Overview
 
-- **Framework**: Next.js (App Router)
-- **UI**: Once UI
-- **Content**: MDX (blog posts and work case studies)
-- **Styling**: SCSS modules + Once UI design tokens
+The site presents production engineering case studies and technical articles focused on Kubernetes platform operations, GitOps delivery pipelines, cloud infrastructure automation, and site reliability engineering.
 
-## Getting Started
+### Content
 
-**1. Install dependencies**
+- Case Studies (`/work`): In-depth architecture breakdowns covering zero-downtime AKS migrations, Envoy Gateway adoption via Gateway API, multi-account AWS inventory aggregation (400+ accounts), OpenSearch disaster recovery verification pipelines, and batch storage optimizations.
+- Technical Articles (`/blog`): Operational deep-dives on GitOps trunk-based delivery rulesets, Wiz shift-left security enforcement, AWS IAM cross-account role assumption, and production monitoring.
+- Interactive Scheduling (`/about` and `/`): Direct booking integration via Cal.com.
+- Newsletter (`/blog`): Technical subscription capture via Aveiro.
+- Resume (`/resume`): ATS-optimized engineering resume with direct PDF export.
+
+## Architecture and Tech Stack
+
+- Framework: Next.js 16 (App Router, static site generation)
+- Edge Runtime: Cloudflare Workers using OpenNext (@opennextjs/cloudflare)
+- Asset Delivery: Cloudflare global edge CDN with pre-rendered directory-based static assets (sub-20ms edge latency)
+- Design System: Once UI with SCSS modules and tokenized styling
+- Content Engine: MDX with KaTeX math rendering and aspect-ratio preserved SVG diagrams
+- Language: TypeScript 5.8
+
+## Local Development
+
+Prerequisites: Node.js 20+
+
+1. Install dependencies:
 ```bash
 npm install
 ```
 
-**2. Run dev server**
+2. Run local development server:
 ```bash
 npm run dev
 ```
 
-**3. Edit personal info**
-```
-src/resources/content.tsx       - name, bio, experience, skills
-src/resources/once-ui.config.ts - domain, theme, routes
+The application will be accessible at `http://localhost:3000`.
+
+3. Run TypeScript type checks:
+```bash
+npx tsc --noEmit
 ```
 
-**4. Add blog posts / case studies**
-```
-src/app/blog/posts/*.mdx        - technical writing
-src/app/work/projects/*.mdx     - project case studies
+## Production Build and Deployment
+
+The project builds via OpenNext for Cloudflare Workers.
+
+1. Build worker bundle and prepare static assets:
+```bash
+npm run build:worker
 ```
 
-**5. Add your resume PDF**
-```
-public/HarjotResume.pdf
+This command runs the prebuild post cache generator, compiles Next.js pages into static HTML and RSC payloads, bundles the OpenNext worker, and copies directory index assets into `.open-next/assets/`.
+
+2. Deploy via Wrangler:
+```bash
+npx wrangler deploy
 ```
 
-## Project Structure
+Continuous deployment is handled automatically via Cloudflare Workers GitHub integration. Pushes to the `master` branch deploy to `https://harjotmakkar.dev`.
 
-```
-src/
-  app/
-    page.tsx              - Homepage
-    about/page.tsx        - About / CV
-    work/                 - Case studies
-    blog/                 - Technical writing
-    resume/page.tsx       - Résumé page
-    gallery/page.tsx      - Gallery
-  resources/
-    content.tsx           - All personal content (single source of truth)
-    once-ui.config.ts     - Theme, routes, SEO config
-  components/             - Layout components (Header, Footer, etc.)
-public/
-  images/                 - Project images, gallery, og images
-```
+## License
 
-## Deployment
-
-Recommended: [Vercel](https://vercel.com) - connect this repo and deploy.
-
-Set these env vars for password protection (optional):
-```
-PAGE_ACCESS_PASSWORD=...
-PAGE_ACCESS_SECRET=...
-```
+This project is licensed under the Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0). See the [LICENSE](./LICENSE) file for details.
