@@ -16,6 +16,7 @@ import {
   Row,
   Avatar,
   Line,
+  Badge,
 } from "@once-ui-system/core";
 import { baseURL, about, person, work } from "@/resources";
 import { formatDate } from "@/utils/formatDate";
@@ -45,11 +46,16 @@ export async function generateMetadata({
 
   if (!post) return {};
 
+  const isSvg = (img?: string) => !img || img.endsWith(".svg");
+  const ogImage = !isSvg(post.metadata.image)
+    ? post.metadata.image
+    : `/api/og/generate?title=${encodeURIComponent(post.metadata.title)}`;
+
   const metadata = Meta.generate({
     title: post.metadata.title,
     description: post.metadata.summary,
     baseURL: baseURL,
-    image: post.metadata.image || `/api/og/generate?title=${post.metadata.title}`,
+    image: ogImage,
     path: `${work.path}/${post.slug}`,
   });
   // Meta.generate writes a canonical only alongside language alternates.
@@ -84,7 +90,7 @@ export default async function Project({
     })) || [];
 
   return (
-    <Column as="section" maxWidth="m" horizontal="center" gap="l">
+    <Column as="section" maxWidth="m" horizontal="center" gap="l" paddingX="16" fillWidth>
       <Schema
         as="blogPosting"
         baseURL={baseURL}
@@ -94,7 +100,9 @@ export default async function Project({
         datePublished={post.metadata.publishedAt}
         dateModified={post.metadata.publishedAt}
         image={
-          post.metadata.image || `/api/og/generate?title=${encodeURIComponent(post.metadata.title)}`
+          post.metadata.image && !post.metadata.image.endsWith(".svg")
+            ? post.metadata.image
+            : `/api/og/generate?title=${encodeURIComponent(post.metadata.title)}`
         }
         author={{
           name: person.name,
@@ -102,16 +110,27 @@ export default async function Project({
           image: `${baseURL}${person.avatar}`,
         }}
       />
-      <Column maxWidth="s" gap="16" horizontal="center" align="center">
+      <Column maxWidth="s" gap="16" horizontal="center" align="center" paddingX="16">
         <SmartLink href="/work">
           <Text variant="label-strong-m">Projects</Text>
         </SmartLink>
         <Text variant="body-default-xs" onBackground="neutral-weak" marginBottom="12">
           {post.metadata.publishedAt && formatDate(post.metadata.publishedAt)}
         </Text>
-        <Heading variant="display-strong-m">{post.metadata.title}</Heading>
+        <Heading variant="display-strong-m" wrap="balance" align="center">
+          {post.metadata.title}
+        </Heading>
+        {post.metadata.tags && post.metadata.tags.length > 0 && (
+          <Row gap="8" wrap horizontal="center" marginTop="8">
+            {post.metadata.tags.map((tag) => (
+              <Badge key={tag} effect={false}>
+                {tag}
+              </Badge>
+            ))}
+          </Row>
+        )}
       </Column>
-      <Row marginBottom="32" horizontal="center">
+      <Row marginBottom="32" horizontal="center" gap="16" vertical="center" wrap>
         <Row gap="16" vertical="center">
           {post.metadata.team && <AvatarGroup reverse avatars={avatars} size="s" />}
           <Text variant="label-default-m" onBackground="brand-weak">
@@ -127,6 +146,14 @@ export default async function Project({
             ))}
           </Text>
         </Row>
+        {post.metadata.link && (
+          <Row gap="8" vertical="center">
+            <Text onBackground="neutral-weak">·</Text>
+            <SmartLink href={post.metadata.link} suffixIcon="arrowUpRightFromSquare">
+              <Text variant="label-default-m">LinkedIn Post</Text>
+            </SmartLink>
+          </Row>
+        )}
       </Row>
       {post.metadata.images.length > 0 && (
         <Media
@@ -140,7 +167,7 @@ export default async function Project({
           src={post.metadata.images[0]}
         />
       )}
-      <Column style={{ margin: "auto" }} as="article" maxWidth="xs">
+      <Column style={{ margin: "auto" }} as="article" maxWidth="xs" fillWidth paddingX="16">
         <CustomMDX source={post.content} />
       </Column>
       <Column fillWidth gap="40" horizontal="center" marginTop="40">

@@ -50,9 +50,9 @@ const home: Home = {
   featured: {
     display: true,
     title: (
-      <strong className="ml-4">Featured: Zero-Downtime AKS Cutover via Flux GitOps (15.5k LOC)</strong>
+      <strong className="ml-4">Let's Connect · Schedule a 1:1 conversation</strong>
     ),
-    href: "/work/zero-downtime-kubernetes-platform-cutover",
+    href: "https://cal.com/harjot-makkar",
   },
   subline: (
     <>
@@ -75,8 +75,8 @@ const about: About = {
     display: true,
   },
   calendar: {
-    display: false,
-    link: "https://cal.com",
+    display: true,
+    link: "https://cal.com/harjot-makkar",
   },
   intro: {
     display: true,
@@ -102,7 +102,7 @@ const about: About = {
     title: "Work Experience",
     experiences: [
       {
-        company: "Remote Enterprise Infrastructure",
+        company: "Crecita",
         timeframe: "Nov 2024 - Present",
         role: "Cloud Site Reliability Engineer",
         achievements: [
@@ -142,7 +142,7 @@ const about: About = {
         images: [],
       },
       {
-        company: "Early-Stage Software Platform (Remote Internship)",
+        company: "Edera (Remote Internship)",
         timeframe: "Aug 2024 - Nov 2024",
         role: "AI & Platform Engineering Intern",
         achievements: [

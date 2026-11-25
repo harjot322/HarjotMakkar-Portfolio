@@ -8,6 +8,8 @@ import {
   Heading,
   SmartLink,
   Text,
+  Badge,
+  Row,
 } from "@once-ui-system/core";
 
 interface ProjectCardProps {
@@ -20,20 +22,24 @@ interface ProjectCardProps {
   description: string;
   avatars: { src: string; "aria-label"?: string }[];
   link: string;
+  tags?: string[];
 }
 
 export const ProjectCard: React.FC<ProjectCardProps> = ({
   href,
+  priority,
   images = [],
   title,
   hasContent,
   description,
   avatars,
   link,
+  tags = [],
 }) => {
   return (
     <Column fillWidth gap="m">
       <Carousel
+        priority={priority}
         sizes="(max-width: 960px) 100vw, 960px"
         items={images.map((image) => ({
           slide: image,
@@ -62,6 +68,15 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
               <Text wrap="balance" variant="body-default-s" onBackground="neutral-weak">
                 {description}
               </Text>
+            )}
+            {tags && tags.length > 0 && (
+              <Row gap="8" wrap>
+                {tags.map((tag) => (
+                  <Badge key={tag} effect={false}>
+                    {tag}
+                  </Badge>
+                ))}
+              </Row>
             )}
             <Flex gap="24" wrap>
               {hasContent && (

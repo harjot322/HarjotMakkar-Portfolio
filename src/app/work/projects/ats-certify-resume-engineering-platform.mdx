@@ -4,12 +4,17 @@ publishedAt: "2025-01-01"
 summary: "Architected an end-to-end resume engineering and ATS evaluation platform featuring a zero-backend client-side vector builder (pdf-lib / docx) and a decoupled hybrid evaluation engine (Next.js 14, Python FastAPI with PyMuPDF, and pluggable Gemini/Ollama scoring adapters), backed by a 5-stage distributed roadmap to scale to 1 million users."
 images:
   - "/images/projects/ats-certify/ats-certify-architecture.svg"
+tags:
+  - "Next.js 14"
+  - "Python FastAPI"
+  - "Gemini API"
+  - "PyMuPDF"
+  - "pdf-lib"
 team:
   - name: "Harjot Singh Makkar"
     role: "Solo Full-Stack & Systems Architect"
     avatar: "/images/harjot.jpg"
     linkedIn: "https://linkedin.com/in/harjotmakkar322"
-link: "https://atscertify.com"
 ---
 
 ## Executive Summary & Architectural Thesis
@@ -208,7 +213,7 @@ Ahead of the planned mid-to-late 2027 production launch, ATS Certify is scoped t
 
 ### 1. Zero-Retention "Trustless" Certification Authority (/verify & QR Provenance)
 - **Privacy-First Results Ledger**: Raw resume binaries and extracted text remain strictly ephemeral, processed in memory and purged immediately after evaluation. A serverless MongoDB Atlas cluster acts exclusively as a Results Ledger, storing `User`, `Wallet`, and `Certificate` documents indexed on `userId`, `email`, and `createdAt` with zero raw resume text retained.
-- **Verifiable UUID Credentials**: Qualifying scans mint an unguessable UUID (`certificate_id`) and embed a verification QR code (`qrcode.react`) into exported reports, allowing recruiters to verify score authenticity via the public `atscertify.com/verify?id=[UUID]` portal.
+- **Verifiable UUID Credentials**: Qualifying scans mint an unguessable UUID (`certificate_id`) and embed a verification QR code (`qrcode.react`) into exported reports, allowing recruiters to verify score authenticity via the public verification portal.
 
 ### 2. Closed-Loop AI Master Builder (/app/builder Vault)
 - **Automated X-Y-Z Remediation**: Instead of leaving candidates to manually fix flagged weaknesses, the Phase 3 AI Master Builder will ingest the diagnostic penalty log from `/results` and rewrite weak bullets using the Google X-Y-Z achievement formula:

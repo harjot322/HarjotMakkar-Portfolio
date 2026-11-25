@@ -14,6 +14,7 @@ import {
   Avatar,
   Media,
   Line,
+  Badge,
 } from "@once-ui-system/core";
 import { baseURL, about, blog, person } from "@/resources";
 import { formatDate } from "@/utils/formatDate";
@@ -46,11 +47,16 @@ export async function generateMetadata({
 
   if (!post) return {};
 
+  const isSvg = (img?: string) => !img || img.endsWith(".svg");
+  const ogImage = !isSvg(post.metadata.image)
+    ? post.metadata.image
+    : `/api/og/generate?title=${encodeURIComponent(post.metadata.title)}`;
+
   const metadata = Meta.generate({
     title: post.metadata.title,
     description: post.metadata.summary,
     baseURL: baseURL,
-    image: post.metadata.image || `/api/og/generate?title=${post.metadata.title}`,
+    image: ogImage,
     path: `${blog.path}/${post.slug}`,
   });
   // Meta.generate writes a canonical only alongside language alternates.
@@ -83,7 +89,7 @@ export default async function Blog({ params }: { params: Promise<{ slug: string 
     <Row fillWidth>
       <Row maxWidth={12} m={{ hide: true }} />
       <Row fillWidth horizontal="center">
-        <Column as="section" fillWidth maxWidth="m" horizontal="center" gap="l" paddingTop="24">
+        <Column as="section" fillWidth maxWidth="m" horizontal="center" gap="l" paddingTop="24" paddingX="16">
           <Schema
             as="blogPosting"
             baseURL={baseURL}
@@ -93,8 +99,9 @@ export default async function Blog({ params }: { params: Promise<{ slug: string 
             datePublished={post.metadata.publishedAt}
             dateModified={post.metadata.publishedAt}
             image={
-              post.metadata.image ||
-              `/api/og/generate?title=${encodeURIComponent(post.metadata.title)}`
+              post.metadata.image && !post.metadata.image.endsWith(".svg")
+                ? post.metadata.image
+                : `/api/og/generate?title=${encodeURIComponent(post.metadata.title)}`
             }
             author={{
               name: person.name,
@@ -102,14 +109,16 @@ export default async function Blog({ params }: { params: Promise<{ slug: string 
               image: `${baseURL}${person.avatar}`,
             }}
           />
-          <Column maxWidth="s" gap="16" horizontal="center" align="center">
+          <Column maxWidth="s" gap="16" horizontal="center" align="center" paddingX="16">
             <SmartLink href="/blog">
               <Text variant="label-strong-m">Blog</Text>
             </SmartLink>
             <Text variant="body-default-xs" onBackground="neutral-weak" marginBottom="12">
               {post.metadata.publishedAt && formatDate(post.metadata.publishedAt)}
             </Text>
-            <Heading variant="display-strong-m">{post.metadata.title}</Heading>
+            <Heading variant="display-strong-m" wrap="balance" align="center">
+              {post.metadata.title}
+            </Heading>
             {post.metadata.subtitle && (
               <Text
                 variant="body-default-l"
@@ -120,14 +129,31 @@ export default async function Blog({ params }: { params: Promise<{ slug: string 
                 {post.metadata.subtitle}
               </Text>
             )}
+            {post.metadata.tags && post.metadata.tags.length > 0 && (
+              <Row gap="8" wrap horizontal="center" marginTop="8">
+                {post.metadata.tags.map((tag) => (
+                  <Badge key={tag} effect={false}>
+                    {tag}
+                  </Badge>
+                ))}
+              </Row>
+            )}
           </Column>
-          <Row marginBottom="32" horizontal="center">
+          <Row marginBottom="32" horizontal="center" gap="16" vertical="center" wrap>
             <Row gap="16" vertical="center">
               <Avatar size="s" src={person.avatar} aria-label={person.name} />
               <Text variant="label-default-m" onBackground="brand-weak">
                 {person.name}
               </Text>
             </Row>
+            {post.metadata.link && (
+              <Row gap="8" vertical="center">
+                <Text onBackground="neutral-weak">·</Text>
+                <SmartLink href={post.metadata.link} suffixIcon="arrowUpRightFromSquare">
+                  <Text variant="label-default-m">LinkedIn Discussion</Text>
+                </SmartLink>
+              </Row>
+            )}
           </Row>
           {post.metadata.image && (
             <Media
@@ -144,7 +170,7 @@ export default async function Blog({ params }: { params: Promise<{ slug: string 
               marginBottom="8"
             />
           )}
-          <Column as="article" maxWidth="s">
+          <Column as="article" maxWidth="s" fillWidth paddingX="16">
             <CustomMDX source={post.content} />
           </Column>
 

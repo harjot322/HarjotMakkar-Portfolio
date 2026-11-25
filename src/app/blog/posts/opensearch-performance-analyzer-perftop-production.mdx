@@ -3,6 +3,12 @@ title: "Diagnosing Production OpenSearch Ingestion Bottlenecks with PerfTop & Gi
 publishedAt: "2025-07-15"
 summary: "How we enabled OpenSearch Performance Analyzer across dedicated cluster roles using FluxCD, troubleshot cluster-wide agent peering failures, and proved our ingestion pipeline bottleneck was upstream batching."
 image: "/images/blog/perftopdashboard.png"
+tags:
+  - "OpenSearch"
+  - "PerfTop"
+  - "FluxCD"
+  - "GitOps"
+  - "Telemetry Diagnostics"
 ---
 
 > **Note on Telemetry Visuals**: The terminal telemetry screenshots included below are representative reference captures configured to match the exact PerfTop metrics, node layouts, and thread pool graphs observed during this incident. Proprietary cluster hostnames, internal indices, and production data have been redacted in accordance with enterprise security policy. All diagnostic timelines, commands, and architectural findings are 100% authentic.
@@ -186,7 +192,7 @@ Once the team updated their ingestion client to build multi-megabyte payloads, c
 
 ## Protecting the Foundation: An Infrastructure as Code State Lesson
 
-Shortly after resolving the ingestion bottleneck, a related pull request arrived modifying the cloud storage backend that hosts our OpenSearch snapshot repository. The PR proposed renaming an internal Terraform resource identifier from an underscore to a hyphen (e.g., `resource "azurerm_storage_account" "p12_backup"` to `"p12-backup"`).
+Shortly after resolving the ingestion bottleneck, a related pull request arrived modifying the cloud storage backend that hosts our OpenSearch snapshot repository (detailed in the [Automated OpenSearch Backup & Restore-Probe Verification Pipeline](/work/opensearch-automated-backup-verification-pipeline) case study). The PR proposed renaming an internal Terraform resource identifier from an underscore to a hyphen (e.g., `resource "azurerm_storage_account" "p12_backup"` to `"p12-backup"`).
 
 During review, we flagged a critical operational risk that highlights the importance of thorough SRE code review:
 

@@ -5,11 +5,18 @@ summary: "Architected a zero-touch cloud inventory engine across 400+ AWS accoun
 images:
   - "/images/projects/AWS400accounts/400awsaccounts.svg"
   - "/images/projects/AWS400accounts/400accounts-dashboard-view.jpeg"
+tags:
+  - "AWS STS"
+  - "Amazon Aurora"
+  - "HashiCorp Vault"
+  - "Kubernetes"
+  - "FinOps"
 team:
   - name: "Harjot Singh Makkar"
     role: "Cloud SRE"
     avatar: "/images/harjot.jpg"
     linkedIn: "https://linkedin.com/in/harjotmakkar322"
+link: "https://lnkd.in/p/g4E9DsfW"
 ---
 
 ## Executive Summary & Problem Statement
@@ -147,7 +154,7 @@ The assumed role is strictly scoped via AWS IAM policy conditions, allowing only
 ```
 
 > [!NOTE]
-> **Engineering Context on KIAM**: While KIAM was the enterprise standard in this EKS cluster, modern Kubernetes platforms have largely transitioned to **EKS Pod Identity** or **IAM Roles for Service Accounts (IRSA)** to eliminate the iptables proxy daemonset overhead. The core security principle remains identical: short-lived, STS-assumed role credentials with zero static keys.
+> **Engineering Context on KIAM**: While KIAM was the enterprise standard in this EKS cluster, modern Kubernetes platforms have largely transitioned to **EKS Pod Identity** or **IAM Roles for Service Accounts (IRSA)** to eliminate the iptables proxy daemonset overhead. The core security principle remains identical: short-lived, STS-assumed role credentials with zero static keys. For an architectural deep-dive into multi-account IAM role assumption and confused-deputy mitigation, see the companion guide: [Multi-Account AWS Automation: IAM Role Assumption at Scale](/blog/aws-iam-role-assumption-at-scale).
 
 ### 2. Ephemeral Database Authentication with HashiCorp Vault CSI Driver
 Static database credentials represent a primary attack vector in batch jobs. To eliminate this:

@@ -17,6 +17,7 @@ type Metadata = {
   image?: string;
   images: string[];
   tag?: string;
+  tags?: string[];
   team: Team[];
   link?: string;
   aspectRatio?: string;
@@ -98,6 +99,16 @@ function readMDXFile(filePath: string) {
   const primaryImage = (data.images && data.images[0]) || data.image || "";
   const autoAspectRatio = primaryImage ? getImageAspectRatio(primaryImage) : undefined;
 
+  const rawTags: string[] = Array.isArray(data.tags)
+    ? data.tags
+    : Array.isArray(data.tag)
+    ? data.tag
+    : typeof data.tags === "string"
+    ? data.tags.split(",").map((s: string) => s.trim())
+    : typeof data.tag === "string" && data.tag.trim() !== ""
+    ? [data.tag.trim()]
+    : [];
+
   const metadata: Metadata = {
     title: data.title || "",
     subtitle: data.subtitle || "",
@@ -105,7 +116,8 @@ function readMDXFile(filePath: string) {
     summary: data.summary || "",
     image: data.image || "",
     images: data.images || [],
-    tag: data.tag || [],
+    tag: rawTags[0] || "",
+    tags: rawTags,
     team: data.team || [],
     link: data.link || "",
     aspectRatio: data.aspectRatio || autoAspectRatio || "16 / 9",

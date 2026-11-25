@@ -68,6 +68,7 @@ export function Projects({ range, exclude = [], suggestedFor, limit }: ProjectsP
             })) || []
           }
           link={post.metadata.link || ""}
+          tags={post.metadata.tags}
         />
       ))}
     </Column>
