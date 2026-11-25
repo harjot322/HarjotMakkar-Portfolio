@@ -52,7 +52,7 @@ const home: Home = {
     title: (
       <strong className="ml-4">Let's Connect · Schedule a 1:1 conversation</strong>
     ),
-    href: "https://cal.com",
+    href: "https://cal.com/harjot-makkar",
   },
   subline: (
     <>
@@ -75,8 +75,8 @@ const about: About = {
     display: true,
   },
   calendar: {
-    display: false,
-    link: "https://cal.com",
+    display: true,
+    link: "https://cal.com/harjot-makkar",
   },
   intro: {
     display: true,

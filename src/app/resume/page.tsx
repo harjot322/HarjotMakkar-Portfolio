@@ -184,8 +184,8 @@ export default function Resume() {
             skills: "Python · Bash · YAML · Go (familiarity) · React · Node.js",
           },
         ].map(({ category, skills }) => (
-          <Text key={category} variant="body-default-l" style={{ lineHeight: "175%" }}>
-            <Text as="span" variant="heading-strong-m">
+          <Text key={category} variant="body-default-m" style={{ lineHeight: "175%" }}>
+            <Text as="span" variant="heading-strong-s">
               {category}:
             </Text>{" "}
             <Text as="span" onBackground="neutral-weak">
@@ -221,12 +221,16 @@ export default function Resume() {
           Independent Projects
         </Heading>
         <Column gap="4">
-          <Row gap="8" vertical="center" wrap>
-            <Text variant="heading-strong-l">ATS Certify</Text>
-            <Badge effect={false}>Prototype · Coming Soon</Badge>
-            <SmartLink href="/work/ats-certify-resume-engineering-platform">
-              <Text variant="body-default-xs">Architecture Case Study →</Text>
-            </SmartLink>
+          <Row fillWidth horizontal="between" vertical="center" wrap gap="8">
+            <Row gap="12" vertical="center" wrap>
+              <Text variant="heading-strong-l">ATS Certify</Text>
+              <SmartLink href="/work/ats-certify-resume-engineering-platform">
+                <Text variant="body-default-xs">Architecture Case Study →</Text>
+              </SmartLink>
+            </Row>
+            <Text variant="heading-default-xs" onBackground="neutral-weak">
+              Prototype · Coming Soon
+            </Text>
           </Row>
           <Text variant="body-default-m" onBackground="neutral-weak">
             Building a résumé engineering and validation platform that helps job seekers create

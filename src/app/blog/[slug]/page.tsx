@@ -139,13 +139,21 @@ export default async function Blog({ params }: { params: Promise<{ slug: string 
               </Row>
             )}
           </Column>
-          <Row marginBottom="32" horizontal="center">
+          <Row marginBottom="32" horizontal="center" gap="16" vertical="center" wrap>
             <Row gap="16" vertical="center">
               <Avatar size="s" src={person.avatar} aria-label={person.name} />
               <Text variant="label-default-m" onBackground="brand-weak">
                 {person.name}
               </Text>
             </Row>
+            {post.metadata.link && (
+              <Row gap="8" vertical="center">
+                <Text onBackground="neutral-weak">·</Text>
+                <SmartLink href={post.metadata.link} suffixIcon="arrowUpRightFromSquare">
+                  <Text variant="label-default-m">LinkedIn Discussion</Text>
+                </SmartLink>
+              </Row>
+            )}
           </Row>
           {post.metadata.image && (
             <Media
