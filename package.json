@@ -4,8 +4,9 @@
   "scripts": {
     "dev": "next dev",
     "export": "next export",
+    "prebuild": "node scripts/generate-posts-cache.js",
     "build": "next build --webpack",
-    "build:worker": "opennextjs-cloudflare build",
+    "build:worker": "opennextjs-cloudflare build && node scripts/copy-ssg-assets.js",
     "biome-write": "npx @biomejs/biome format --write .",
     "start": "next start",
     "lint": "next lint"
