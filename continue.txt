@@ -169,6 +169,21 @@ C. System & UX Enhancements Added Today:
 - End-to-End Cross-Link Verification:
   - Added bidirectional cross-links connecting all companion case studies and deep-dive blog posts.
   - Ran automated validation script verifying 100% of internal links resolve to valid slugs.
+- Company Names & Experience:
+  - Replaced "Remote Enterprise Infrastructure" with "Crecita" across About and Resume pages.
+  - Replaced "Early-Stage Software Platform" with "Edera (Remote Internship)" across About and Resume pages.
+- Resume Technical Skills Layout:
+  - Removed artificial `minWidth: 180px` spacing bug in resume skills list.
+  - Refactored skills into sleek inline `{Category}: {Skills}` flow with balanced line-height.
+- Independent Projects (ATS Certify):
+  - Removed placeholder `atscertify.com` domain link across resume and case study frontmatter.
+  - Added `Prototype · Coming Soon` status badge and linked directly to internal architecture case study.
+- Complete Light Mode Default:
+  - Locked default theme to `light` in config and layout initialization script.
+  - Completely removed theme toggle button and vertical divider from Header navbar.
+- Hero Header Connect / Meet Pill:
+  - Replaced static featured project pill with `icon="calendar"` interactive call pill:
+    "Let's Connect · Schedule a 1:1 conversation" linking directly to calendar setup.
 
 --------------------------------------------------------------------------------
 5. NEXT STEPS (READY FOR REVIEW & MERGE)

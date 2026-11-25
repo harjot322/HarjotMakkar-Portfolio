@@ -1,4 +1,4 @@
-import { Column, Heading, Text, Button, Row, Badge } from "@once-ui-system/core";
+import { Column, Heading, Text, Button, Row, Badge, SmartLink } from "@once-ui-system/core";
 import { person, baseURL } from "@/resources";
 import { Meta } from "@once-ui-system/core";
 
@@ -88,7 +88,7 @@ export default function Resume() {
             <Column gap="4">
               <Text variant="heading-strong-l">Cloud Site Reliability Engineer</Text>
               <Text variant="body-default-s" onBackground="brand-weak">
-                Remote Enterprise Infrastructure Engagement
+                Crecita (Remote)
               </Text>
             </Column>
             <Text variant="heading-default-xs" onBackground="neutral-weak">
@@ -119,7 +119,7 @@ export default function Resume() {
             <Column gap="4">
               <Text variant="heading-strong-l">AI &amp; Platform Engineering Intern</Text>
               <Text variant="body-default-s" onBackground="brand-weak">
-                Early-Stage Software Platform (Remote)
+                Edera (Remote Internship)
               </Text>
             </Column>
             <Text variant="heading-default-xs" onBackground="neutral-weak">
@@ -184,14 +184,14 @@ export default function Resume() {
             skills: "Python · Bash · YAML · Go (familiarity) · React · Node.js",
           },
         ].map(({ category, skills }) => (
-          <Row key={category} gap="12" s={{ direction: "column", gap: "4" }}>
-            <Text variant="heading-strong-s" style={{ minWidth: "180px" }}>
-              {category}
-            </Text>
-            <Text variant="body-default-m" onBackground="neutral-weak">
+          <Text key={category} variant="body-default-m" style={{ lineHeight: "175%" }}>
+            <Text as="span" variant="heading-strong-s">
+              {category}:
+            </Text>{" "}
+            <Text as="span" onBackground="neutral-weak">
               {skills}
             </Text>
-          </Row>
+          </Text>
         ))}
       </Column>
 
@@ -221,15 +221,12 @@ export default function Resume() {
           Independent Projects
         </Heading>
         <Column gap="4">
-          <Row gap="8" vertical="center">
+          <Row gap="8" vertical="center" wrap>
             <Text variant="heading-strong-l">ATS Certify</Text>
-            <Button
-              href="https://atscertify.com"
-              prefixIcon="openLink"
-              label="atscertify.com"
-              size="s"
-              variant="ghost"
-            />
+            <Badge effect={false}>Prototype · Coming Soon</Badge>
+            <SmartLink href="/work/ats-certify-resume-engineering-platform">
+              <Text variant="body-default-xs">Architecture Case Study →</Text>
+            </SmartLink>
           </Row>
           <Text variant="body-default-m" onBackground="neutral-weak">
             Building a résumé engineering and validation platform that helps job seekers create

@@ -60,7 +60,8 @@ export default function Home() {
                 paddingY="4"
                 onBackground="neutral-strong"
                 textVariant="label-default-s"
-                arrow={false}
+                icon="calendar"
+                arrow={true}
                 href={home.featured.href}
               >
                 <Row paddingY="2">{home.featured.title}</Row>
