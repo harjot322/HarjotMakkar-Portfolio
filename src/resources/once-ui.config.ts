@@ -143,7 +143,7 @@ const effects: EffectsConfig = {
 // where you can write and send the newsletter too. In Aveiro, open Audience → Embed,
 // create a form, add this site's domain to its allowed sites and paste the form's public ID here.
 const newsletterForm: NewsletterFormConfig = {
-  aveiroEmbedId: "",
+  aveiroEmbedId: "emb_oTVFqHeNKLeXJmvr",
   effects: {
     mask: {
       cursor: true,
