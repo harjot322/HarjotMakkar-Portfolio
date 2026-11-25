@@ -6,7 +6,7 @@ const person: Person = {
   name: `Harjot Singh Makkar`,
   role: "Cloud SRE & Infrastructure Engineer",
   avatar: "/images/harjot.jpg",
-  email: "harjotdesk@gmail.com",
+  email: "reach@harjotmakkar.dev",
   location: "Asia/Kolkata", // IANA time zone identifier
   displayLocation: "New Delhi, India", // Display location for header and about page
   languages: ["English", "Hindi"], // optional: Leave the array empty if you don't want to display languages
@@ -35,7 +35,7 @@ const social: Social = [
   {
     name: "Email",
     icon: "email",
-    link: `mailto:harjotdesk@gmail.com`,
+    link: `mailto:reach@harjotmakkar.dev`,
     essential: true,
   },
 ];

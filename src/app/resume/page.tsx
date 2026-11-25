@@ -29,9 +29,9 @@ export default function Resume() {
         </Row>
         <Row gap="12" paddingTop="8">
           <Button
-            href="mailto:harjotdesk@gmail.com"
+            href="mailto:reach@harjotmakkar.dev"
             prefixIcon="email"
-            label="harjotdesk@gmail.com"
+            label="reach@harjotmakkar.dev"
             size="s"
             variant="secondary"
           />
@@ -52,7 +52,7 @@ export default function Resume() {
         </Row>
         <Row paddingTop="8" gap="12">
           <Button
-            href="/HarjotResume.pdf"
+            href="/Harjot2026PortfolioCV.pdf"
             prefixIcon="document"
             label="Download PDF Résumé"
             size="m"
