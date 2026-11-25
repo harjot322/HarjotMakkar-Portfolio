@@ -10,5 +10,6 @@
   },
   "build": {
     "command": "node scripts/copy-ssg-assets.js"
-  }
+  },
+  "previews": {}
 }
