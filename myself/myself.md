@@ -69,7 +69,7 @@ This sourcebook consolidates information from previous discussions and the addit
 | LinkedIn | https://linkedin.com/in/harjotmakkar322 | Confirm URL and update headline |
 | Technical writing | https://harjotsinghmakkar.substack.com | Link if the publication is active and public |
 | Independent product | https://atscertify.com | Link only with an accurate lifecycle label |
-| Public email | harjotmakkar322@gmail.com | Confirm this is the preferred public address; a domain-based alias may be better |
+| Public email | reach@harjotmakkar.dev | Primary domain-based public address |
 | Phone / home address | Not included | Keep private |
 
 Do not include personal email addresses that are not explicitly designated for public contact. Do not include phone number, date of birth, residential address, identity-document details, or personal financial information.
